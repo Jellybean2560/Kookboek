@@ -1,0 +1,22 @@
+{
+  "name": "Kookboek",
+  "short_name": "Kookboek",
+  "description": "Jullie eigen receptenboek: kies wat je eet en schaal recepten naar het aantal personen.",
+  "lang": "nl",
+  "start_url": "./#/vandaag",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf6f0",
+  "theme_color": "#c4532f",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
+}
