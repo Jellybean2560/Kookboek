@@ -200,6 +200,15 @@ label.field > span { display: block; font-size: 14px; font-weight: 600; margin-b
 .section-title { margin: 8px 0 10px; }
 .cooked-bar { display: flex; gap: 10px; align-items: center; background: var(--ok-soft); color: var(--text); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
 
+/* Scan */
+.scan-pages { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.scan-page { position: relative; width: 84px; height: 112px; border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+.scan-page img { width: 100%; height: 100%; object-fit: cover; }
+.scan-page button {
+  position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; border: none;
+  background: rgba(0, 0, 0, .6); color: #fff; font-size: 13px; cursor: pointer;
+}
+
 /* Edit form */
 .photo-edit { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; }
 .photo-edit .thumb { width: 96px; height: 96px; }
@@ -442,6 +451,8 @@ function guessTags(title, ingredients) {
   const text = (' ' + [title, ...ingredients].join(' \n ').toLowerCase() + ' ')
     .replace(/(vis|kippen|kip|runder|rund|groente)(saus|bouillon|fond|blokje)\w*/g, ' ')
     // Nor do curry paste or tomato purée make it pasta or mash.
+    // Bread used as an ingredient (stoofvlees, breadcrumbs) isn't a bread meal.
+    .replace(/(snee|sneden|sneetjes?|korst(en)?|stukje)\s+(\w+\s+)?brood\w*|brood(kruim|kruimels|deeg)\w*|paneermeel/g, ' ')
     // Minced beef is "gehakt", not steak.
     .replace(/(runder|rund|varkens|kalfs|lams|kippen|kip)gehakt/g, ' gehakt')
     .replace(/(curry|kerrie|tomaten|sesam|noten|knoflook|gember|chili|miso|kruiden|boemboe)[\s-]?(pasta|puree|purée)/g, ' ');
@@ -852,6 +863,12 @@ function renderAdd(view) {
       <p class="hint" id="import-msg" style="margin:10px 0 0">${/android/i.test(navigator.userAgent) && isStandalone() ? 'Tip: in Chrome kun je ook op <i>Delen</i> tikken en Kookboek kiezen.' : ''}</p>
     </div>
     <div class="card">
+      <h2>📷 Foto van een recept</h2>
+      <p>Uit een kookboek, tijdschrift of oma's briefje. Neem de foto recht van boven met goed licht; staat het recept op twee pagina's, voeg dan beide toe.</p>
+      <div id="scan-pages"></div>
+      <p class="hint" id="scan-msg" style="margin:10px 0 0"></p>
+    </div>
+    <div class="card">
       <h2>📋 Tekst plakken</h2>
       <p>Lukt de link niet (Allerhande blokkeert dit bijvoorbeeld)? Selecteer op de website het hele recept, kopieer het en plak het hier.</p>
       <textarea id="import-text" placeholder="Plak hier de recepttekst…"></textarea>
@@ -862,6 +879,83 @@ function renderAdd(view) {
       <p>Oma's lasagne of je eigen vaste prik? Typ het recept zelf in.</p>
       <button class="btn block" onclick="startDraft({})">Leeg recept beginnen</button>
     </div>`;
+  renderScanPages();
+}
+
+// ── Scan a photographed recipe ──────────────────────────────────────────────
+
+const MAX_SCAN_PAGES = 4;
+let scanPages = [];
+
+function renderScanPages() {
+  const el = $('#scan-pages');
+  if (!el) return;
+  const pick = (label, capture, cls) => `<label class="btn ${cls}" style="flex:1;padding:12px 10px;white-space:nowrap">${label}
+    <input type="file" accept="image/*" ${capture ? 'capture="environment"' : 'multiple'} hidden onchange="addScanPages(this)"></label>`;
+  el.innerHTML = scanPages.length ? `
+    <div class="scan-pages">
+      ${scanPages.map((src, i) => `<div class="scan-page"><img src="${src}" alt="Pagina ${i + 1}"><button onclick="removeScanPage(${i})" aria-label="Verwijderen">✕</button></div>`).join('')}
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      ${scanPages.length < MAX_SCAN_PAGES ? pick('📷 Pagina erbij', true, 'ghost') + pick('🖼️ Uit galerij', false, 'ghost') : ''}
+    </div>
+    <button class="btn primary block" id="scan-btn" onclick="scanRecipe()">Recept lezen</button>`
+    : `<div class="row">${pick('📷 Foto maken', true, 'primary')}${pick('🖼️ Uit galerij', false, '')}</div>`;
+}
+
+async function addScanPages(input) {
+  const files = [...(input.files || [])].slice(0, MAX_SCAN_PAGES - scanPages.length);
+  input.value = '';
+  for (const f of files) {
+    try { scanPages.push(await resizeImage(f, 1600, 0.82)); }
+    catch { toast('Deze foto kon niet gelezen worden'); }
+  }
+  $('#scan-msg').textContent = '';
+  renderScanPages();
+}
+
+function removeScanPage(i) {
+  scanPages.splice(i, 1);
+  renderScanPages();
+}
+
+function resizeImage(file, max, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('unreadable')); };
+    img.src = url;
+  });
+}
+
+async function scanRecipe() {
+  if (!scanPages.length) return;
+  const btn = $('#scan-btn'), msg = $('#scan-msg');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Recept lezen… (±10 sec)';
+  msg.textContent = '';
+  try {
+    const res = await fetch(`${API}/scan`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ images: scanPages }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
+    scanPages = [];
+    startDraft({ ...data, imported: true, scanned: true, partial: !(data.ingredients?.length && data.steps?.length) });
+  } catch (e) {
+    const offline = !navigator.onLine || e instanceof TypeError;
+    msg.innerHTML = `<span style="color:var(--danger)">${esc(offline ? 'Geen verbinding. Probeer het opnieuw als je online bent.' : e.message)}</span>`;
+    if (btn.isConnected) { btn.disabled = false; btn.textContent = 'Recept lezen'; }
+  }
 }
 
 async function pasteUrl() {
@@ -966,7 +1060,7 @@ function renderEdit(view, id) {
 
   view.innerHTML = `
     <div class="page-head"><button class="back" onclick="cancelEdit()" aria-label="Annuleren">✕</button><h1>${d.id ? 'Recept bewerken' : 'Nieuw recept'}</h1></div>
-    ${d.imported ? `<div class="banner"><span>${d.partial ? '⚠️' : '✨'}</span><div><b>${d.partial ? 'Niet alles kon worden overgenomen' : 'Recept overgenomen'}</b>${d.partial ? 'Vul de ontbrekende delen aan' : 'Kijk het even na'} en controleer vooral de categorieën — daarop zoekt <i>Wat eten we?</i>.</div></div>` : ''}
+    ${d.imported ? `<div class="banner"><span>${d.partial ? '⚠️' : '✨'}</span><div><b>${d.partial ? 'Niet alles kon worden overgenomen' : d.scanned ? 'Recept gelezen van de foto' : 'Recept overgenomen'}</b>${d.partial ? 'Vul de ontbrekende delen aan' : d.scanned ? 'Controleer even de hoeveelheden' : 'Kijk het even na'} en vooral de categorieën — daarop zoekt <i>Wat eten we?</i>.${d.scanned ? ' Een foto van het gerecht kun je hieronder toevoegen.' : ''}</div></div>` : ''}
 
     <div class="photo-edit">
       <div id="photo-preview">${thumbHTML(d)}</div>
@@ -1011,22 +1105,11 @@ function toggleDraftTag(key, id, el) {
   el.classList.toggle('on', i < 0);
 }
 
-function pickPhoto(input) {
+async function pickPhoto(input) {
   const file = input.files && input.files[0];
   if (!file) return;
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-  img.onload = () => {
-    const max = 900, scale = Math.min(1, max / Math.max(img.width, img.height));
-    const c = document.createElement('canvas');
-    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    draft.image = c.toDataURL('image/jpeg', 0.72);
-    URL.revokeObjectURL(url);
-    render();
-  };
-  img.onerror = () => toast('Deze foto kon niet gelezen worden');
-  img.src = url;
+  try { draft.image = await resizeImage(file, 900, 0.72); render(); }
+  catch { toast('Deze foto kon niet gelezen worden'); }
 }
 
 function cancelEdit() {

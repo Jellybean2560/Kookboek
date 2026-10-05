@@ -32,6 +32,9 @@ export default {
       if (url.pathname === "/import" && request.method === "GET") {
         return json(await importRecipe(url.searchParams.get("url")));
       }
+      if (url.pathname === "/scan" && request.method === "POST") {
+        return json(await scanRecipe(request, env));
+      }
       const m = url.pathname.match(/^\/b\/([^/]+)\/sync$/);
       if (m && request.method === "POST") {
         if (!BOOK_RE.test(m[1])) return json({ error: "Ongeldige kookboekcode" }, 400);
@@ -88,6 +91,88 @@ export class Book extends DurableObject {
       .toArray().map(row => JSON.parse(row.data));
     return json({ seq, changes: out });
   }
+}
+
+// ── Photo scan ──────────────────────────────────────────────────────────────
+// A vision model on Workers AI reads photographed recipe pages. On the free
+// plan this draws from the 10,000 neurons/day allowance (~150 per photo) and
+// simply fails once that is used up; it never bills.
+
+const SCAN_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const MAX_SCAN_IMAGES = 4;
+const MAX_SCAN_BYTES = 8_000_000;
+
+const SCAN_PROMPT = `Je krijgt een of meer foto's van een gedrukt of handgeschreven recept (kookboek, tijdschrift, papiertje). Lees het recept en geef het terug als JSON.
+
+Regels:
+- Neem de tekst letterlijk over in de oorspronkelijke taal. Niet vertalen, niets verzinnen, geen hoeveelheden aanpassen.
+- "ingredients": één ingrediënt per item, met de hoeveelheid vooraan zoals gedrukt (bv. "500 g gehakt", "1 ui"). Staan ingrediënten onder tussenkopjes (bv. "Voor de saus"), zet het kopje als apart item met "# " ervoor.
+- "steps": één stap per item, zonder nummering. Lees kolommen in de juiste volgorde; zinnen die over een regeleinde doorlopen horen bij dezelfde stap.
+- "servings": aantal personen als getal, of null. "time": totale bereidingstijd in minuten als getal, of null.
+- "notes": tips of opmerkingen bij het recept, anders "".
+- Lukt het niet om een recept te lezen, geef dan {"error": "korte uitleg"}.
+
+Antwoord ALLEEN met JSON in deze vorm:
+{"title": "", "servings": null, "time": null, "ingredients": [], "steps": [], "notes": ""}`;
+
+async function scanRecipe(request, env) {
+  const len = +request.headers.get("Content-Length") || 0;
+  if (len > MAX_SCAN_BYTES) throw httpError(413, "De foto's zijn te groot");
+  let body;
+  try { body = await request.json(); } catch { throw httpError(400, "Ongeldige aanvraag"); }
+  const images = (Array.isArray(body.images) ? body.images : [])
+    .filter(s => typeof s === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(s));
+  if (!images.length) throw httpError(400, "Geen foto ontvangen");
+  if (images.length > MAX_SCAN_IMAGES) throw httpError(400, `Maximaal ${MAX_SCAN_IMAGES} foto's tegelijk`);
+
+  let out;
+  try {
+    out = await env.AI.run(SCAN_MODEL, {
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: SCAN_PROMPT },
+          ...images.map(url => ({ type: "image_url", image_url: { url } })),
+        ],
+      }],
+      max_tokens: 2500,
+      temperature: 0.1,
+    });
+  } catch (e) {
+    const msg = String(e && e.message || e);
+    if (/neuron|limit|quota|429|exceeded/i.test(msg)) throw httpError(429, "Het gratis scan-tegoed voor vandaag is op. Probeer het morgen opnieuw, of plak de tekst.");
+    throw httpError(502, "Het scannen lukte niet: " + msg.slice(0, 200));
+  }
+
+  const text = typeof out?.response === "string" ? out.response
+    : out?.response ? JSON.stringify(out.response)
+    : out?.choices?.[0]?.message?.content || "";
+  const parsed = parseModelJson(text);
+  if (!parsed) throw httpError(422, "De foto kon niet als recept gelezen worden. Probeer een scherpere foto, recht van boven.");
+  if (parsed.error) throw httpError(422, String(parsed.error));
+
+  const lines = (v) => toArray(v).map(x => clean(typeof x === "string" ? x : x?.text || x?.name || "")).filter(Boolean);
+  const num = (v) => { const n = parseInt(v, 10); return n > 0 && n < 1000 ? n : null; };
+  const recipe = {
+    title: clean(parsed.title),
+    servings: num(parsed.servings),
+    time: num(parsed.time),
+    ingredients: lines(parsed.ingredients),
+    steps: lines(parsed.steps).map(s => s.replace(/^(stap\s*)?\d+[.)]\s*/i, "")),
+    notes: clean(parsed.notes),
+  };
+  if (!recipe.title && !recipe.ingredients.length && !recipe.steps.length) {
+    throw httpError(422, "Op de foto werd geen recept gevonden");
+  }
+  return recipe;
+}
+
+function parseModelJson(text) {
+  if (!text) return null;
+  const s = text.replace(/```(?:json)?/gi, "");
+  const start = s.indexOf("{"), end = s.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try { return JSON.parse(s.slice(start, end + 1)); } catch { return null; }
 }
 
 // ── Recipe import ───────────────────────────────────────────────────────────

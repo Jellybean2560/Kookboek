@@ -10,3 +10,7 @@ class_name = "Book"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Book"]
+
+# Workers AI reads photographed recipes (free daily allocation on the free plan).
+[ai]
+binding = "AI"

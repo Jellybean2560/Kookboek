@@ -7,6 +7,7 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
 - `sw.js` — network-first app shell (`kookboek-v1`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
 - `worker/` — Cloudflare Worker `kookboek`, live at `https://kookboek.jellevandenwouwer.workers.dev`. Deploy with `cd worker && npx wrangler deploy` (wrangler is logged in on this PC).
   - `GET /import?url=` fetches a recipe page server-side, parses schema.org `Recipe` JSON-LD (microdata fallback), returns normalised JSON. Never returns raw HTML (not an open proxy).
+  - `POST /scan` `{images: [dataURL]}` (max 4, ~1600px JPEG) — photo of a printed/handwritten recipe → recipe JSON via Workers AI `@cf/meta/llama-4-scout-17b-16e-instruct` (`[ai]` binding). Free plan: 10k neurons/day, ~150 per photo; over the limit it errors (429), never bills. Chosen over mistral-small-3.1 (similar, slightly worse on diacritics); gemma-3 is not enabled on this account.
   - `POST /b/{code}/sync` — one SQLite Durable Object per shared book. Client sends `{since, changes}`; server keeps per-recipe last-write-wins on client `updatedAt` and returns rows with `seq > since`. Deletions are tombstones (`deleted: true`).
 - Local testing: `localStorage.kb_api = 'http://localhost:8787'` points the app at `wrangler dev`.
 
