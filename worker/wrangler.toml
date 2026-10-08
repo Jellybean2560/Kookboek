@@ -14,3 +14,12 @@ new_sqlite_classes = ["Book"]
 # Workers AI reads photographed recipes (free daily allocation on the free plan).
 [ai]
 binding = "AI"
+
+# Daily scan counter (per IP and in total).
+[[durable_objects.bindings]]
+name = "LIMITER"
+class_name = "Limiter"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Limiter"]

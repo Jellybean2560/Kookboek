@@ -237,6 +237,101 @@ nav.tabs a.on .ic { filter: none; opacity: 1; }
   font-size: 14px; pointer-events: none; text-align: center;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.action { pointer-events: auto; display: flex; align-items: center; gap: 14px; }
+.toast-btn { background: none; border: none; color: var(--accent-soft); font-weight: 700; cursor: pointer; padding: 4px 2px; white-space: nowrap; }
+body.cooking .toast { bottom: 110px; }
+
+/* Photo cards */
+.cards { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 560px) { .cards { grid-template-columns: 1fr 1fr; } }
+.photo-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; text-decoration: none; color: inherit; display: block; position: relative; }
+.photo-card .pic { aspect-ratio: 16 / 10; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 64px; overflow: hidden; }
+.photo-card .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-card .body { padding: 12px 14px 14px; }
+.photo-card .title { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 19px; line-height: 1.25; margin-bottom: 6px; }
+.fav-badge { position: absolute; top: 10px; right: 10px; background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 4px 9px; font-size: 13px; font-weight: 600; color: #2b2420; }
+.meta .stars-mini { color: #e0a526; }
+
+/* Suggestions on the home screen */
+.suggest { margin-bottom: 22px; }
+.suggest h3 { margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
+.suggest h3 small { font-weight: 400; color: var(--muted); font-size: 13px; }
+.mini-row { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 6px; scrollbar-width: none; }
+.mini-row::-webkit-scrollbar { display: none; }
+.mini-card { flex: none; width: 128px; text-decoration: none; color: inherit; }
+.mini-card .pic { width: 128px; height: 84px; border-radius: 12px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; box-shadow: var(--shadow); }
+.mini-card .pic img { width: 100%; height: 100%; object-fit: cover; }
+.mini-card .t { font-size: 14px; font-weight: 600; line-height: 1.3; margin-top: 6px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mini-card .s { font-size: 12px; color: var(--muted); }
+.week-line { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 22px; padding: 0 16px; scrollbar-width: none; }
+.week-line::-webkit-scrollbar { display: none; }
+.week-line a { flex: none; text-decoration: none; color: inherit; background: var(--surface); box-shadow: var(--shadow); border-radius: 12px; padding: 8px 12px; font-size: 13px; max-width: 200px; }
+.week-line a b { display: block; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; }
+.week-line a span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pantry-link { display: flex; align-items: center; gap: 14px; margin-top: 18px; background: var(--surface); box-shadow: var(--shadow); border-radius: var(--radius); padding: 16px; text-decoration: none; color: inherit; }
+.pantry-link .emoji { font-size: 34px; }
+.pantry-link b { display: block; }
+.pantry-link span { font-size: 14px; color: var(--muted); }
+
+/* Favourite + rating */
+.rate-row { display: flex; align-items: center; gap: 14px; margin: 4px 0 12px; }
+.fav-btn { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 15px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.fav-btn.on { border-color: #d9455f; background: #fde7eb; color: #8c1d33; }
+:root[data-theme="dark"] .fav-btn.on { background: #4a1f29; color: #ffd0d9; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fav-btn.on { background: #4a1f29; color: #ffd0d9; } }
+.stars { display: flex; }
+.stars button { background: none; border: none; font-size: 26px; line-height: 1; padding: 2px; cursor: pointer; color: var(--line); }
+.stars button.on { color: #e0a526; }
+
+/* Timers (in steps and in the floating bar) */
+.timer-chip {
+  display: inline-flex; align-items: center; gap: 4px; border: none; border-radius: 999px; background: var(--accent-soft);
+  color: var(--text); font: inherit; font-size: .88em; font-weight: 600; padding: 1px 9px; margin: 0 2px; cursor: pointer; white-space: nowrap;
+}
+/* Sticky in the page flow, so however many timers run they push the page
+   down instead of covering it. */
+#timers { position: sticky; top: 0; z-index: 30; display: flex; flex-direction: column; gap: 6px; padding: 0 12px; pointer-events: none; }
+body.has-timers #timers { padding-top: calc(env(safe-area-inset-top) + 8px); }
+.timer-pill {
+  pointer-events: auto; align-self: center; display: flex; align-items: center; gap: 10px; background: var(--text); color: var(--bg);
+  border-radius: 999px; padding: 8px 8px 8px 16px; box-shadow: 0 4px 16px rgba(0, 0, 0, .25); font-size: 15px; max-width: 100%;
+}
+.timer-pill .time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 17px; }
+.timer-pill .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .8; }
+.timer-pill button { border: none; background: rgba(255, 255, 255, .18); color: inherit; border-radius: 999px; padding: 6px 12px; font-weight: 600; cursor: pointer; }
+.timer-pill.done { background: var(--accent); color: var(--accent-ink); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.04); } }
+body.has-timers .wrap { padding-top: 14px; }
+body.has-timers .hero { margin-top: -14px; }
+body.has-timers .hero .back { top: 14px; }
+
+/* Cook mode */
+body.cooking nav.tabs { display: none; }
+body.cooking { padding-bottom: 0; }
+.cook { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; margin-top: calc(-20px - env(safe-area-inset-top)); padding-top: calc(env(safe-area-inset-top) + 12px); }
+body.has-timers .cook { margin-top: -14px; padding-top: 10px; }
+.cook-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.cook-top .title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cook-progress { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-bottom: 22px; }
+.cook-progress div { height: 100%; background: var(--accent); border-radius: 3px; transition: width .25s; }
+.cook-body { flex: 1; }
+.cook-section { color: var(--accent); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.cook-stepno { color: var(--muted); font-size: 15px; margin-bottom: 8px; }
+.cook-text { font-size: 25px; line-height: 1.45; margin-bottom: 24px; }
+.cook-text .timer-chip { font-size: .8em; padding: 3px 12px; }
+.cook-need { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.cook-need h3 { margin-bottom: 6px; font-size: 14px; color: var(--muted); }
+.cook-need li { padding: 4px 0; }
+.cook-need ul { list-style: none; padding: 0; margin: 0; }
+.cook-nav { position: sticky; bottom: 0; display: flex; gap: 12px; padding: 16px 0 calc(env(safe-area-inset-bottom) + 16px); background: linear-gradient(transparent, var(--bg) 25%); }
+.cook-nav .btn { flex: 1; min-height: 58px; font-size: 18px; }
+.cook-start { margin: 0 0 16px; }
+
+/* In huis */
+.pantry-input { display: flex; gap: 8px; margin-bottom: 12px; }
+.pantry-chips .chip { cursor: pointer; }
+.match { font-size: 13px; margin-top: 4px; }
+.match .yes { color: var(--ok); font-weight: 600; }
 .spinner { width: 18px; height: 18px; border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .sync-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
@@ -249,6 +344,7 @@ nav.tabs a.on .ic { filter: none; opacity: 1; }
 </style>
 </head>
 <body>
+<div id="timers"></div>
 <main class="wrap" id="view"></main>
 
 <nav class="tabs" id="nav">
@@ -320,7 +416,7 @@ function lsSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-const settings = Object.assign({ book: '', seq: 0, lastSync: 0, defaultServings: 0, hideInstall: false }, lsGet('kb_settings', {}));
+const settings = Object.assign({ book: '', seq: 0, lastSync: 0, defaultServings: 0, hideInstall: false, lastExport: 0, backupNagAt: 0 }, lsGet('kb_settings', {}));
 const saveSettings = () => lsSet('kb_settings', settings);
 let dirty = new Set(lsGet('kb_dirty', []));
 const saveDirty = () => lsSet('kb_dirty', [...dirty]);
@@ -335,10 +431,33 @@ async function saveRecipe(r) {
   scheduleSync();
 }
 
+// Deleted recipes keep their contents for TRASH_DAYS so they can be restored
+// (also from the other phone), then shrink to a bare tombstone.
+const TRASH_DAYS = 30;
+
 async function deleteRecipe(id) {
   const r = recipes.get(id);
-  if (!r) return;
-  await saveRecipe({ id, deleted: true, createdAt: r.createdAt });
+  if (!r || r.deleted) return;
+  await saveRecipe({ ...r, deleted: true, deletedAt: Date.now() });
+}
+
+async function restoreRecipe(id) {
+  const r = recipes.get(id);
+  if (!r || !r.deleted) return;
+  const { deleted, deletedAt, ...rest } = r;
+  await saveRecipe(rest);
+}
+
+const trashedRecipes = () => [...recipes.values()]
+  .filter(r => r.deleted && r.title && r.deletedAt > Date.now() - TRASH_DAYS * 86400000)
+  .sort((a, b) => b.deletedAt - a.deletedAt);
+
+async function emptyOldTrash() {
+  for (const r of recipes.values()) {
+    if (r.deleted && r.title && !(r.deletedAt > Date.now() - TRASH_DAYS * 86400000)) {
+      await saveRecipe({ id: r.id, deleted: true, deletedAt: r.deletedAt || Date.now(), createdAt: r.createdAt });
+    }
+  }
 }
 
 function newId() {
@@ -424,10 +543,15 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 const $ = (sel) => document.querySelector(sel);
 
 let toastTimer;
-function toast(msg) {
+// action: {label, run} adds a button (e.g. "Ongedaan maken") and keeps the
+// toast up longer.
+function toast(msg, action) {
   const t = $('#toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  t.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button class="toast-btn">${esc(action.label)}</button>` : '');
+  t.classList.toggle('action', !!action);
+  if (action) t.querySelector('button').onclick = () => { t.classList.remove('show'); action.run(); };
+  t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), action ? 6500 : 2800);
 }
 
 function hostOf(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } }
@@ -474,8 +598,32 @@ function thumbHTML(r, cls = 'thumb') {
   return `<div class="${cls}"><img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith('${fallback}')"></div>`;
 }
 
-function recipeMeta(r) {
+function picHTML(r) {
+  const fallback = esc(recipeEmoji(r));
+  if (!r.image) return `<div class="pic">${fallback}</div>`;
+  return `<div class="pic"><img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith('${fallback}')"></div>`;
+}
+
+function photoCardHTML(r, extra = '') {
+  return `<a class="photo-card" href="#/recept/${encodeURIComponent(r.id)}">
+    ${picHTML(r)}
+    ${r.favorite ? '<span class="fav-badge">❤️ Favoriet</span>' : ''}
+    <div class="body"><div class="title">${esc(r.title || 'Naamloos recept')}</div><div class="meta">${recipeMeta(r, true)}</div>${extra}</div>
+  </a>`;
+}
+
+function miniCardHTML(r, sub) {
+  return `<a class="mini-card" href="#/recept/${encodeURIComponent(r.id)}">${picHTML(r)}
+    <div class="t">${esc(r.title || 'Naamloos recept')}</div><div class="s">${esc(sub)}</div></a>`;
+}
+
+const starsText = (n) => '★'.repeat(n);
+
+// Photo cards show a "Favoriet" badge on the picture instead of the heart.
+function recipeMeta(r, badge = false) {
   const bits = [];
+  if (r.favorite && !badge) bits.push('❤️');
+  if (r.rating) bits.push(`<span class="stars-mini">${starsText(r.rating)}</span>`);
   if (r.time) bits.push(`⏱ ${r.time} min`);
   if (r.servings) bits.push(`👥 ${r.servings}`);
   if (r.lastCooked) bits.push(`✓ ${daysAgo(r.lastCooked)}`);
@@ -553,13 +701,14 @@ function render() {
   const pathChanged = path !== lastPath;
   lastPath = path;
   releaseWakeLock();
+  document.body.classList.remove('cooking');
 
-  document.querySelectorAll('[data-nav]').forEach(a => {
-    const on = a.dataset.nav === name || (name === 'recept' && a.dataset.nav === 'recepten') || (name === 'bewerk' && a.dataset.nav === 'toevoegen');
-    a.classList.toggle('on', on);
-  });
+  const navFor = { recept: 'recepten', koken: 'recepten', bewerk: 'toevoegen', inhuis: 'vandaag', koppel: 'instellingen' };
+  document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === (navFor[name] || name)));
 
   if (name === 'recepten') renderList(view);
+  else if (name === 'koken') renderCook(view, args[0], args[1]);
+  else if (name === 'inhuis') renderPantry(view);
   else if (name === 'toevoegen') renderAdd(view);
   else if (name === 'recept') renderDetail(view, args[0], pathChanged);
   else if (name === 'bewerk') renderEdit(view, args[0]);
@@ -571,9 +720,30 @@ function render() {
 
 // ── Wat eten we? ────────────────────────────────────────────────────────────
 
+const TIMES = [
+  { id: 'snel', label: 'Snel', emoji: '⚡', sub: 'max. 30 minuten', max: 30 },
+  { id: 'uur', label: 'Max. een uur', emoji: '⏲️', sub: 'tot 60 minuten', max: 60 },
+];
+const TIME_BY_ID = Object.fromEntries(TIMES.map(t => [t.id, t]));
+const RECENT_DAYS = 7;
+const todayState = { showRecent: false };
+
+const isRecent = (r) => r.lastCooked && r.lastCooked > Date.now() - RECENT_DAYS * 86400000;
+
+// Recipes for a wizard path. Recipes without a time can't be judged, so they
+// come back separately instead of silently counting as quick.
+function wizardSets(base, protein, time) {
+  let set = liveRecipes();
+  if (base && base !== 'alles') set = set.filter(r => effBases(r).includes(base));
+  if (protein && protein !== 'alles') set = set.filter(r => effProteins(r).includes(protein));
+  const max = TIME_BY_ID[time]?.max;
+  if (!max) return { fits: set, unknown: [] };
+  return { fits: set.filter(r => r.time && r.time <= max), unknown: set.filter(r => !r.time) };
+}
+
 function renderToday(view, args) {
   const all = liveRecipes();
-  const [base, protein] = args;
+  const [base, protein, time] = args;
 
   if (!all.length) {
     view.innerHTML = `
@@ -589,37 +759,44 @@ function renderToday(view, args) {
     return;
   }
 
-  const byBase = (b) => b === 'alles' ? all : all.filter(r => effBases(r).includes(b));
-  const choiceHTML = (item, n, href) => `
+  const choiceHTML = (item, n, href, sub) => `
     <a class="choice${n ? '' : ' empty'}" href="${href}" style="text-decoration:none;color:inherit">
       <span class="emoji">${item.emoji}</span><span class="name">${esc(item.label)}</span>
-      <span class="count">${n} ${n === 1 ? 'recept' : 'recepten'}</span>
+      <span class="count">${sub ? esc(sub) + ' · ' : ''}${n} ${n === 1 ? 'recept' : 'recepten'}</span>
     </a>`;
   const anyHTML = (n, href) => `
     <a class="choice any" href="${href}" style="text-decoration:none;color:inherit">
       <span class="emoji">🤷</span><span class="name">Maakt niet uit</span><span class="count">${n} recepten</span>
     </a>`;
+  const labelOf = (list, id) => id === 'alles' ? 'Maakt niet uit' : list[id]?.label || id;
+  const crumbs = (...chips) => `<div class="page-head"><button class="back" onclick="history.back()" aria-label="Terug">←</button>
+    <div class="crumbs" style="margin:0">${chips.map(c => `<span class="chip on">${esc(c)}</span>`).join('')}</div></div>`;
 
   if (!base) {
     view.innerHTML = `
       ${installBanner()}
-      <div class="step-label">Vraag 1 van 2</div>
+      ${backupBanner()}
+      ${suggestionsHTML(all)}
+      <div class="step-label">Vraag 1 van 3</div>
       <h1 class="question">Waar hebben jullie zin in?</h1>
       <div class="choices">
-        ${BASES.map(b => choiceHTML(b, byBase(b.id).length, `#/vandaag/${b.id}`)).join('')}
+        ${BASES.map(b => choiceHTML(b, wizardSets(b.id).fits.length, `#/vandaag/${b.id}`)).join('')}
         ${anyHTML(all.length, '#/vandaag/alles')}
-      </div>`;
+      </div>
+      <a class="pantry-link" href="#/inhuis"><span class="emoji">🧺</span><div><b>Wat heb ik in huis?</b><span>Vul in wat je nog hebt en zie wat je ermee kunt maken.</span></div></a>`;
     return;
   }
 
-  const baseSet = byBase(base);
-  const baseLabel = base === 'alles' ? 'Maakt niet uit' : BASE_BY_ID[base]?.label;
+  const baseLabel = labelOf(BASE_BY_ID, base);
+  const baseSet = wizardSets(base).fits;
 
   if (!protein) {
     const options = PROTEINS.map(p => [p, baseSet.filter(r => effProteins(r).includes(p.id)).length]).filter(([, n]) => n);
+    // Only one possibility: don't ask.
+    if (options.length === 1) { location.replace(`#/vandaag/${base}/${options[0][0].id}`); return; }
     view.innerHTML = `
-      <div class="page-head"><button class="back" onclick="history.back()" aria-label="Terug">←</button><div class="crumbs" style="margin:0"><span class="chip on">${esc(baseLabel)}</span></div></div>
-      <div class="step-label">Vraag 2 van 2</div>
+      ${crumbs(baseLabel)}
+      <div class="step-label">Vraag 2 van 3</div>
       <h1 class="question">En welk vlees of vis?</h1>
       ${options.length ? `<div class="choices">
         ${options.map(([p, n]) => choiceHTML(p, n, `#/vandaag/${base}/${p.id}`)).join('')}
@@ -628,29 +805,86 @@ function renderToday(view, args) {
     return;
   }
 
-  const results = (protein === 'alles' ? baseSet : baseSet.filter(r => effProteins(r).includes(protein)))
-    .sort((a, b) => (a.lastCooked || 0) - (b.lastCooked || 0));
-  const proteinLabel = protein === 'alles' ? 'Maakt niet uit' : PROTEIN_BY_ID[protein]?.label;
+  const proteinLabel = labelOf(PROTEIN_BY_ID, protein);
+  const set = wizardSets(base, protein).fits;
+
+  if (!time) {
+    const timed = set.filter(r => r.time);
+    // Nothing to tell apart: every timed recipe is quick, or none has a time.
+    if (!timed.length || timed.every(r => r.time <= TIMES[0].max)) { location.replace(`#/vandaag/${base}/${protein}/alles`); return; }
+    const unknown = set.length - timed.length;
+    view.innerHTML = `
+      ${crumbs(baseLabel, proteinLabel)}
+      <div class="step-label">Vraag 3 van 3</div>
+      <h1 class="question">Hoeveel tijd hebben jullie?</h1>
+      <div class="choices">
+        ${TIMES.map(t => choiceHTML(t, timed.filter(r => r.time <= t.max).length, `#/vandaag/${base}/${protein}/${t.id}`, t.sub)).join('')}
+        ${anyHTML(set.length, `#/vandaag/${base}/${protein}/alles`)}
+      </div>
+      ${unknown ? `<p class="hint" style="margin-top:14px">${unknown} ${unknown === 1 ? 'recept heeft' : 'recepten hebben'} geen bereidingstijd; die zie je apart onderaan.</p>` : ''}`;
+    return;
+  }
+
+  const timeLabel = labelOf(TIME_BY_ID, time);
+  const { fits, unknown } = wizardSets(base, protein, time);
+  const recentCount = [...fits, ...unknown].filter(isRecent).length;
+  const everythingRecent = recentCount === fits.length + unknown.length;
+  const hide = !todayState.showRecent && recentCount && !everythingRecent;
+  const byLeastRecent = (a, b) => (a.lastCooked || 0) - (b.lastCooked || 0);
+  const shown = fits.filter(r => !hide || !isRecent(r)).sort(byLeastRecent);
+  const shownUnknown = unknown.filter(r => !hide || !isRecent(r)).sort(byLeastRecent);
+  const total = shown.length + shownUnknown.length;
+
   view.innerHTML = `
-    <div class="page-head"><button class="back" onclick="history.back()" aria-label="Terug">←</button>
-      <div class="crumbs" style="margin:0"><span class="chip on">${esc(baseLabel)}</span><span class="chip on">${esc(proteinLabel)}</span></div></div>
-    <h1 class="question" style="margin-bottom:6px">${results.length ? `${results.length} ${results.length === 1 ? 'idee' : 'ideeën'} voor vandaag` : 'Geen recepten gevonden'}</h1>
-    <p class="hint" style="margin:0 0 16px">${results.length > 1 ? 'Wat het langst niet op tafel kwam, staat bovenaan.' : ''}</p>
-    ${results.length > 1 ? `<button class="btn primary block" style="margin-bottom:16px" onclick="surprise('${esc(base)}','${esc(protein)}')">🎲 Kies maar voor ons</button>` : ''}
-    ${results.map(recipeItemHTML).join('')}
-    <div class="row" style="margin-top:16px"><a class="btn ghost" href="#/vandaag">Opnieuw kiezen</a></div>`;
+    ${crumbs(baseLabel, proteinLabel, ...(time === 'alles' ? [] : [timeLabel]))}
+    <h1 class="question" style="margin-bottom:6px">${total ? `${total} ${total === 1 ? 'idee' : 'ideeën'} voor vandaag` : 'Geen recepten gevonden'}</h1>
+    <p class="hint" style="margin:0 0 16px">${total > 1 ? 'Wat het langst niet op tafel kwam, staat bovenaan.' : ''}
+      ${recentCount && !everythingRecent ? `${hide ? `${recentCount} van deze week ${recentCount === 1 ? 'is' : 'zijn'} verborgen.` : ''}
+        <a href="javascript:void 0" onclick="todayState.showRecent=${!todayState.showRecent};render()">${hide ? 'Toch tonen' : 'Deze week gegeten verbergen'}</a>` : ''}</p>
+    ${total > 1 ? `<button class="btn primary block" style="margin-bottom:16px" onclick="surprise('${esc(base)}','${esc(protein)}','${esc(time)}')">🎲 Kies maar voor ons</button>` : ''}
+    <div class="cards">${shown.map(r => photoCardHTML(r)).join('')}</div>
+    ${shownUnknown.length ? `<h3 style="margin:22px 0 10px">Tijd onbekend</h3><div class="cards">${shownUnknown.map(r => photoCardHTML(r)).join('')}</div>` : ''}
+    <div class="row" style="margin-top:18px"><a class="btn ghost" href="#/vandaag">Opnieuw kiezen</a></div>`;
 }
 
-function surprise(base, protein) {
-  let set = liveRecipes();
-  if (base !== 'alles') set = set.filter(r => effBases(r).includes(base));
-  if (protein !== 'alles') set = set.filter(r => effProteins(r).includes(protein));
+function surprise(base, protein, time) {
+  const { fits, unknown } = wizardSets(base, protein, time);
+  let set = [...fits, ...unknown];
+  if (!todayState.showRecent && set.some(r => !isRecent(r))) set = set.filter(r => !isRecent(r));
   if (!set.length) return;
-  // Favour what hasn't been cooked in a while; never-cooked counts as 30 days.
-  const weights = set.map(r => Math.min(60, r.lastCooked ? (Date.now() - r.lastCooked) / 86400000 : 30) + 1);
+  // Favour what hasn't been cooked in a while (never cooked counts as 30
+  // days), favourites and well-rated dishes.
+  const weights = set.map(r => (Math.min(60, r.lastCooked ? (Date.now() - r.lastCooked) / 86400000 : 30) + 1)
+    * (r.favorite ? 2 : 1) * (r.rating ? r.rating / 3 : 1));
   let pick = Math.random() * weights.reduce((a, b) => a + b, 0);
   const idx = weights.findIndex(w => (pick -= w) < 0);
   location.hash = `#/recept/${encodeURIComponent(set[Math.max(0, idx)].id)}`;
+}
+
+function suggestionsHTML(all) {
+  const DAY = 86400000;
+  const week = all.filter(isRecent).sort((a, b) => b.lastCooked - a.lastCooked);
+  const dayName = (ts) => {
+    const d = Math.round((startOfDay(Date.now()) - startOfDay(ts)) / DAY);
+    return d === 0 ? 'Vandaag' : d === 1 ? 'Gisteren' : new Date(ts).toLocaleDateString('nl-BE', { weekday: 'long' });
+  };
+  const favs = all.filter(r => r.favorite && !isRecent(r)).sort((a, b) => (a.lastCooked || 0) - (b.lastCooked || 0)).slice(0, 10);
+  const notFav = all.filter(r => !favs.includes(r));
+  const longAgo = notFav.filter(r => r.lastCooked && r.lastCooked < Date.now() - 21 * DAY).sort((a, b) => a.lastCooked - b.lastCooked).slice(0, 10);
+  const never = notFav.filter(r => !r.lastCooked).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 10);
+
+  let html = '';
+  if (week.length) {
+    html += `<h3 style="margin-bottom:10px">Deze week gegeten</h3><div class="week-line">${week.map(r =>
+      `<a href="#/recept/${encodeURIComponent(r.id)}"><b>${esc(dayName(r.lastCooked))}</b><span>${esc(r.title)}</span></a>`).join('')}</div>`;
+  }
+  const row = (title, sub, list, label) => list.length ? `<div class="suggest"><h3>${title} <small>${sub}</small></h3>
+    <div class="mini-row">${list.map(r => miniCardHTML(r, label(r))).join('')}</div></div>` : '';
+  html += row('❤️ Favorieten', 'al een tijdje niet gehad', favs, r => r.lastCooked ? daysAgo(r.lastCooked) : 'nog niet gekookt');
+  html += longAgo.length
+    ? row('Lang niet meer gemaakt', 'misschien weer eens?', longAgo, r => daysAgo(r.lastCooked))
+    : row('Nog nooit gemaakt', 'tijd om te proberen', never, r => r.time ? `⏱ ${r.time} min` : hostOf(r.source) || 'eigen recept');
+  return html;
 }
 
 function isStandalone() {
@@ -669,7 +903,7 @@ function installBanner() {
 const listState = { q: '', tags: new Set(), sort: 'az' };
 
 function renderList(view) {
-  const tagChips = [...BASES.filter(b => b.id !== 'anders'), ...PROTEINS.filter(p => p.id !== 'anders')]
+  const tagChips = [{ id: 'fav', emoji: '❤️', label: 'Favorieten' }, ...BASES.filter(b => b.id !== 'anders'), ...PROTEINS.filter(p => p.id !== 'anders')]
     .map(t => `<button class="chip${listState.tags.has(t.id) ? ' on' : ''}" onclick="toggleListTag('${t.id}')">${t.emoji} ${esc(t.label)}</button>`).join('');
   view.innerHTML = `
     <div class="page-head"><h1>Recepten</h1><a class="btn primary" href="#/toevoegen" style="padding:10px 16px;min-height:40px">+ Nieuw</a></div>
@@ -680,6 +914,7 @@ function renderList(view) {
         <option value="az"${listState.sort === 'az' ? ' selected' : ''}>A–Z</option>
         <option value="new"${listState.sort === 'new' ? ' selected' : ''}>Nieuwste eerst</option>
         <option value="cooked"${listState.sort === 'cooked' ? ' selected' : ''}>Langst niet gekookt</option>
+        <option value="rating"${listState.sort === 'rating' ? ' selected' : ''}>Best beoordeeld</option>
       </select></div>
     <div id="list-results"></div>`;
   renderListResults();
@@ -694,7 +929,7 @@ function renderListResults() {
   const q = listState.q.trim().toLowerCase();
   let rs = liveRecipes().filter(r => {
     for (const t of listState.tags) {
-      if (BASE_BY_ID[t] ? !effBases(r).includes(t) : !effProteins(r).includes(t)) return false;
+      if (t === 'fav' ? !r.favorite : BASE_BY_ID[t] ? !effBases(r).includes(t) : !effProteins(r).includes(t)) return false;
     }
     if (!q) return true;
     return (r.title || '').toLowerCase().includes(q) || (r.ingredients || []).some(i => i.toLowerCase().includes(q));
@@ -703,6 +938,7 @@ function renderListResults() {
     az: (a, b) => (a.title || '').localeCompare(b.title || '', 'nl'),
     new: (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
     cooked: (a, b) => (a.lastCooked || 0) - (b.lastCooked || 0),
+    rating: (a, b) => (b.rating || 0) - (a.rating || 0) || (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || (a.title || '').localeCompare(b.title || '', 'nl'),
   };
   rs.sort(sorters[listState.sort]);
   const total = liveRecipes().length;
@@ -723,7 +959,8 @@ async function keepAwake() {
 function releaseWakeLock() { try { wakeLock?.release(); } catch {} wakeLock = null; }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    if (currentRoute() === 'recept') keepAwake();
+    if (currentRoute() === 'recept' || currentRoute() === 'koken') keepAwake();
+    tickTimers();
     scheduleSync(0);
   }
 });
@@ -753,7 +990,7 @@ function renderDetail(view, id, fresh) {
   const current = stepIdx.find(i => !detailState.stepsDone.has(i));
   const steps = (r.steps || []).map((s, i) => isHeading(s)
     ? `<li class="head">${esc(headingText(s))}</li>`
-    : `<li class="step${detailState.stepsDone.has(i) ? ' done' : ''}${i === current && detailState.stepsDone.size ? ' current' : ''}" onclick="tickStep(${i})">${esc(s)}</li>`).join('');
+    : `<li class="step${detailState.stepsDone.has(i) ? ' done' : ''}${i === current && detailState.stepsDone.size ? ' current' : ''}" onclick="tickStep(${i})">${stepHTML(s, r.title)}</li>`).join('');
 
   view.innerHTML = `
     <div class="hero${r.image ? '' : ' noimg'}">
@@ -766,6 +1003,11 @@ function renderDetail(view, id, fresh) {
       ${r.time ? `<span class="chip">⏱ ${r.time} min</span>` : ''}
       ${tags.map(t => `<span class="chip">${t.emoji} ${esc(t.label)}</span>`).join('')}
     </div>
+    <div class="rate-row">
+      <button class="fav-btn${r.favorite ? ' on' : ''}" onclick="toggleFavorite('${esc(r.id)}')">${r.favorite ? '❤️ Favoriet' : '♡ Favoriet'}</button>
+      <div class="stars" role="group" aria-label="Beoordeling">${[1, 2, 3, 4, 5].map(n =>
+        `<button class="${n <= (r.rating || 0) ? 'on' : ''}" onclick="setRating('${esc(r.id)}', ${n})" aria-label="${n} ${n === 1 ? 'ster' : 'sterren'}">★</button>`).join('')}</div>
+    </div>
     ${r.lastCooked ? `<p class="hint">Laatst gekookt ${daysAgo(r.lastCooked)}${r.cookCount > 1 ? ` · al ${r.cookCount}× gemaakt` : ''}</p>` : ''}
 
     <div class="servings">
@@ -777,6 +1019,8 @@ function renderDetail(view, id, fresh) {
       </div>
     </div>
     ${factor !== 1 ? `<p class="scaled-note">Hoeveelheden omgerekend van ${base} naar ${detailState.servings} personen. <a href="javascript:void 0" onclick="detailState.servings=${base};render()">Origineel</a></p>` : ''}
+
+    ${stepIdx.length ? `<a class="btn primary block cook-start" href="#/koken/${encodeURIComponent(r.id)}/0">👩‍🍳 Start kookmodus</a>` : ''}
 
     <h2 class="section-title">Ingrediënten</h2>
     <ul class="ingredients">${ingredients || '<li class="head" style="color:var(--muted)">Geen ingrediënten ingevuld</li>'}</ul>
@@ -792,7 +1036,7 @@ function renderDetail(view, id, fresh) {
     <div class="row" style="margin-bottom:24px">
       <a class="btn" href="#/bewerk/${encodeURIComponent(r.id)}">✏️ Bewerken</a>
       <button class="btn" onclick="shareRecipe('${esc(r.id)}')">↗ Delen</button>
-      <button class="btn danger" onclick="confirmDelete('${esc(r.id)}')">Verwijderen</button>
+      <button class="btn danger" onclick="removeRecipe('${esc(r.id)}')">Verwijderen</button>
     </div>`;
 }
 
@@ -819,12 +1063,382 @@ async function markCooked(id) {
   toast('Smakelijk! 🍽️');
   render();
 }
-async function confirmDelete(id) {
+async function removeRecipe(id) {
   const r = recipes.get(id);
-  if (!confirm(`"${r.title}" verwijderen?${settings.book ? ' Het verdwijnt ook bij wie het kookboek met je deelt.' : ''}`)) return;
   await deleteRecipe(id);
-  toast('Recept verwijderd');
   location.replace('#/recepten');
+  toast(`"${r.title}" verwijderd`, {
+    label: 'Ongedaan maken',
+    run: async () => { await restoreRecipe(id); location.hash = `#/recept/${encodeURIComponent(id)}`; },
+  });
+}
+
+async function toggleFavorite(id) {
+  const r = { ...recipes.get(id) };
+  r.favorite = !r.favorite;
+  await saveRecipe(r);
+  render();
+}
+async function setRating(id, n) {
+  const r = { ...recipes.get(id) };
+  r.rating = r.rating === n ? 0 : n; // tapping the same star again clears it
+  await saveRecipe(r);
+  render();
+}
+
+// ── Timers ──────────────────────────────────────────────────────────────────
+// Durations in step text become buttons. Timers keep an end time, so they
+// stay right when the phone sleeps; the alarm sounds as soon as the app is
+// in front again (browsers don't run pages in the background).
+
+const DURATION_RE = /(\d+(?:[.,]\d+)?)(?:\s*(?:à|-|–|tot)\s*\d+(?:[.,]\d+)?)?\s*(seconden|sec\b|minuten|minuutjes|minuut|min\b|uur|uren)|(anderhalf\s*uur|half\s*uur|halfuur|kwartier)/gi;
+
+function durationSeconds(m) {
+  if (m[3]) return /anderhalf/i.test(m[3]) ? 5400 : /kwartier/i.test(m[3]) ? 900 : 1800;
+  const n = parseFloat(m[1].replace(',', '.'));
+  const unit = m[2].toLowerCase();
+  return Math.round(unit.startsWith('sec') ? n : unit.startsWith('u') ? n * 3600 : n * 60);
+}
+
+function stepHTML(text, label) {
+  let out = '', last = 0, m;
+  DURATION_RE.lastIndex = 0;
+  while ((m = DURATION_RE.exec(text))) {
+    const secs = durationSeconds(m);
+    if (!(secs > 0 && secs <= 86400)) continue;
+    out += esc(text.slice(last, m.index)) +
+      `<button class="timer-chip" onclick="event.stopPropagation();startTimer(${secs}, ${esc(JSON.stringify(label || 'Timer'))})">⏱ ${esc(m[0])}</button>`;
+    last = m.index + m[0].length;
+  }
+  return out + esc(text.slice(last));
+}
+
+let timers = lsGet('kb_timers', []);
+let audioCtx = null, alarmLoop = null, timerKey = '';
+const saveTimers = () => lsSet('kb_timers', timers);
+
+function fmtClock(s) {
+  const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = s % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0');
+}
+function fmtDuration(s) {
+  if (s < 60) return `${s} sec`;
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h ? `${h} uur${m ? ` ${m} min` : ''}` : `${m} min`;
+}
+
+function startTimer(secs, label) {
+  // Audio may only start from a tap, so unlock it now for the alarm later.
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {}
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+  timers.push({ id: newId(), label: `${label} · ${fmtDuration(secs)}`, end: Date.now() + secs * 1000 });
+  saveTimers();
+  renderTimers();
+  toast(`Timer van ${fmtDuration(secs)} gestart`);
+}
+
+function stopTimer(id) {
+  timers = timers.filter(t => t.id !== id);
+  saveTimers();
+  if (!timers.some(t => t.done)) stopAlarm();
+  renderTimers();
+}
+
+function renderTimers() {
+  const el = $('#timers');
+  document.body.classList.toggle('has-timers', timers.length > 0);
+  const key = timers.map(t => t.id + (t.done ? '!' : '')).join();
+  if (key !== timerKey) {
+    timerKey = key;
+    el.innerHTML = timers.map(t => t.done
+      ? `<div class="timer-pill done"><span>🔔</span><span class="lbl">${esc(t.label)} — klaar!</span><button onclick="stopTimer('${t.id}')">OK</button></div>`
+      : `<div class="timer-pill" data-id="${t.id}"><span class="time"></span><span class="lbl">${esc(t.label)}</span><button onclick="stopTimer('${t.id}')" aria-label="Timer stoppen">✕</button></div>`).join('');
+  }
+  for (const t of timers) {
+    const time = el.querySelector(`[data-id="${t.id}"] .time`);
+    if (time) time.textContent = fmtClock(Math.max(0, Math.ceil((t.end - Date.now()) / 1000)));
+  }
+}
+
+function tickTimers() {
+  if (!timers.length) return;
+  let fired = false;
+  for (const t of timers) {
+    if (!t.done && Date.now() >= t.end) { t.done = true; fired = true; notifyTimer(t); }
+  }
+  if (fired) { saveTimers(); startAlarm(); }
+  renderTimers();
+}
+
+function notifyTimer(t) {
+  if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
+  navigator.serviceWorker?.ready.then(reg => reg.showNotification('⏱ Timer klaar', { body: t.label, tag: t.id })).catch(() => {});
+}
+
+function beep() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  for (const at of [0, 0.25, 0.5]) {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, now + at);
+    g.gain.exponentialRampToValueAtTime(0.4, now + at + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.2);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(now + at); o.stop(now + at + 0.22);
+  }
+}
+function startAlarm() {
+  if (alarmLoop) return;
+  const started = Date.now();
+  const ring = () => {
+    beep();
+    navigator.vibrate?.([300, 150, 300]);
+    if (Date.now() - started > 120000) stopAlarm(); // give up after 2 minutes
+  };
+  ring();
+  alarmLoop = setInterval(ring, 1600);
+}
+function stopAlarm() { clearInterval(alarmLoop); alarmLoop = null; }
+
+// ── Cook mode ───────────────────────────────────────────────────────────────
+
+const UNIT_WORDS = new Set(('g gr gram kg kilo mg ml cl dl l liter deciliter centiliter milliliter el tl eetlepel eetlepels ' +
+  'theelepel theelepels snuf snufje scheut scheutje scheutjes blik blikje blikken pak pakje pakken teen teentje teentjes ' +
+  'stuk stuks stukje stukjes handje handjes handvol takje takjes tak bosje bosjes bos plak plakken plakje plakjes zakje ' +
+  'zakjes potje pot bol bollen stronk stronken kopje kopjes mespunt mespuntje beetje enkele paar klont klontje blaadje ' +
+  'blaadjes blad bladeren st x').split(' '));
+const STOP_WORDS = new Set(('of en de het een met van voor in op om aan te tot naar bij verse vers gesneden fijngehakte ' +
+  'fijngehakt gehakte grote groot kleine klein rode groene gele witte zwarte middelgrote geraspte geraspt kruimige ' +
+  'vastkokende bloemige gedroogde gemalen grof fijn extra vergine smaak eventueel evt optioneel ongeveer ca halve hele ' +
+  'zachte koude warme lauwe biologische').split(' '));
+
+function ingredientWords(line) {
+  const s = line.toLowerCase().replace(QTY_RE, '').replace(/\(.*?\)/g, ' ').split(/[,;]/)[0];
+  return s.split(/[^a-zà-ÿ-]+/).filter(w => w && !UNIT_WORDS.has(w) && !STOP_WORDS.has(w) && (w.length >= 3 || w === 'ui'));
+}
+const stemOf = (w) => w.length > 5 ? w.replace(/(tjes|jes|en|es|s|je)$/, '') : w;
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const mentions = (text, word) => new RegExp('(^|[^a-zà-ÿ])' + escRe(stemOf(word))).test(text);
+
+function ingredientsForStep(r, text) {
+  const t = text.toLowerCase();
+  // Dutch compounds: "bouillon" in a step should find "kippenbouillon".
+  const stepWords = t.split(/[^a-zà-ÿ]+/).filter(w => w.length >= 5).map(stemOf);
+  return (r.ingredients || []).filter(l => !isHeading(l) && ingredientWords(l).some(w =>
+    mentions(t, w) || stepWords.some(sw => w.length > sw.length && stemOf(w).endsWith(sw))));
+}
+
+function cookSteps(r) {
+  const out = [];
+  let section = '';
+  for (const s of r.steps || []) {
+    if (isHeading(s)) section = headingText(s);
+    else out.push({ text: s, section });
+  }
+  return out;
+}
+
+function renderCook(view, id, idx) {
+  const r = recipes.get(id);
+  if (!r || r.deleted) { location.replace('#/recepten'); return; }
+  if (detailState.id !== id) {
+    detailState.id = id;
+    detailState.servings = settings.defaultServings || r.servings || 4;
+    detailState.ticked = new Set();
+    detailState.stepsDone = new Set();
+  }
+  const steps = cookSteps(r);
+  if (!steps.length) { location.replace(`#/recept/${encodeURIComponent(id)}`); return; }
+  const i = Math.max(0, Math.min(steps.length - 1, +idx || 0));
+  const step = steps[i];
+  const factor = detailState.servings / (r.servings || 4);
+  const need = ingredientsForStep(r, step.text);
+  const last = i === steps.length - 1;
+  const to = (n) => `location.replace('#/koken/${encodeURIComponent(id)}/${n}')`;
+  document.body.classList.add('cooking');
+  keepAwake();
+
+  view.innerHTML = `
+    <div class="cook">
+      <div class="cook-top">
+        <button class="back" onclick="location.replace('#/recept/${encodeURIComponent(id)}')" aria-label="Kookmodus sluiten">✕</button>
+        <div class="title">${esc(r.title)}</div>
+        <span class="chip">👥 ${detailState.servings}</span>
+      </div>
+      <div class="cook-progress"><div style="width:${((i + 1) / steps.length) * 100}%"></div></div>
+      <div class="cook-body">
+        ${step.section ? `<div class="cook-section">${esc(step.section)}</div>` : ''}
+        <div class="cook-stepno">Stap ${i + 1} van ${steps.length}</div>
+        <div class="cook-text">${stepHTML(step.text, `${r.title} — stap ${i + 1}`)}</div>
+        ${need.length ? `<div class="cook-need"><h3>Nodig voor deze stap</h3><ul>${need.map(l => `<li>${scaleLine(l, factor)}</li>`).join('')}</ul></div>` : ''}
+      </div>
+      <div class="cook-nav">
+        <button class="btn ghost" ${i ? '' : 'disabled'} onclick="${to(i - 1)}">← Vorige</button>
+        ${last ? `<button class="btn primary" onclick="finishCooking('${esc(id)}')">Klaar! 🎉</button>`
+          : `<button class="btn primary" onclick="${to(i + 1)}">Volgende →</button>`}
+      </div>
+    </div>`;
+}
+
+async function finishCooking(id) {
+  const r = recipes.get(id);
+  if (!(r.lastCooked && startOfDay(r.lastCooked) === startOfDay(Date.now()))) {
+    await saveRecipe({ ...r, lastCooked: Date.now(), cookCount: (r.cookCount || 0) + 1 });
+  }
+  location.replace(`#/recept/${encodeURIComponent(id)}`);
+  toast('Smakelijk! 🍽️ Vergeet niet een beoordeling te geven.');
+}
+
+// Swipe left/right between steps.
+let touchX = null, touchY = null;
+document.addEventListener('touchstart', e => {
+  if (currentRoute() !== 'koken') return;
+  touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (touchX == null || currentRoute() !== 'koken') return;
+  const dx = e.changedTouches[0].clientX - touchX, dy = e.changedTouches[0].clientY - touchY;
+  touchX = null;
+  if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx)) return;
+  const [, id, idx] = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
+  const steps = cookSteps(recipes.get(id) || {});
+  const next = (+idx || 0) + (dx < 0 ? 1 : -1);
+  if (next >= 0 && next < steps.length) location.replace(`#/koken/${encodeURIComponent(id)}/${next}`);
+}, { passive: true });
+
+// ── Wat heb ik in huis? ─────────────────────────────────────────────────────
+
+const pantryState = { terms: [] };
+
+function renderPantry(view) {
+  const counts = new Map();
+  for (const r of liveRecipes()) {
+    for (const l of r.ingredients || []) {
+      if (isHeading(l)) continue;
+      const name = ingredientWords(l).join(' ');
+      if (name.length > 1 && name.length < 30) counts.set(name, (counts.get(name) || 0) + 1);
+    }
+  }
+  const known = [...counts].sort((a, b) => b[1] - a[1]).map(e => e[0]).slice(0, 300);
+  view.innerHTML = `
+    <div class="page-head"><button class="back" onclick="goBack()" aria-label="Terug">←</button><h1>Wat heb ik in huis?</h1></div>
+    <p class="hint" style="margin:-8px 0 14px">Voeg toe wat je nog hebt liggen (bv. kip, paprika, room). Recepten die er het meest van gebruiken staan bovenaan.</p>
+    <div class="pantry-input">
+      <input id="pantry-in" list="pantry-known" placeholder="Ingrediënt…" autocomplete="off" enterkeyhint="done"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addPantryTerm()}">
+      <button class="btn primary" style="white-space:nowrap" onclick="addPantryTerm()">Voeg toe</button>
+    </div>
+    <datalist id="pantry-known">${known.map(k => `<option value="${esc(k)}">`).join('')}</datalist>
+    <div class="chips pantry-chips" style="margin-bottom:16px">${pantryState.terms.map((t, i) =>
+      `<button class="chip on" onclick="pantryState.terms.splice(${i},1);render()">${esc(t)} ✕</button>`).join('')}</div>
+    <div id="pantry-results"></div>`;
+  renderPantryResults();
+}
+
+function addPantryTerm() {
+  const input = $('#pantry-in');
+  const terms = input.value.split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+  for (const t of terms) if (!pantryState.terms.includes(t)) pantryState.terms.push(t);
+  render();
+  $('#pantry-in')?.focus();
+}
+
+function renderPantryResults() {
+  const el = $('#pantry-results');
+  const terms = pantryState.terms;
+  if (!terms.length) { el.innerHTML = ''; return; }
+  const matchesLine = (line, term) => term.split(/\s+/).every(w => mentions(line.toLowerCase(), w));
+  const scored = liveRecipes().map(r => {
+    const lines = (r.ingredients || []).filter(l => !isHeading(l));
+    const hits = terms.filter(t => lines.some(l => matchesLine(l, t)));
+    const used = lines.filter(l => terms.some(t => matchesLine(l, t))).length;
+    return { r, hits, rest: lines.length - used };
+  }).filter(x => x.hits.length)
+    .sort((a, b) => b.hits.length - a.hits.length || a.rest - b.rest);
+  el.innerHTML = scored.length
+    ? `<div class="cards">${scored.map(({ r, hits, rest }) => photoCardHTML(r,
+        `<div class="match"><span class="yes">✓ ${esc(hits.join(', '))}</span>${rest ? ` · nog ${rest} ander${rest === 1 ? '' : 'e'} ingrediënt${rest === 1 ? '' : 'en'}` : ''}</div>`)).join('')}</div>`
+    : `<div class="empty-state"><div class="big">🧺</div><p>Geen recepten gevonden met ${esc(terms.join(', '))}.</p></div>`;
+}
+
+// ── Own copy of imported photos ─────────────────────────────────────────────
+
+async function copyImage(url) {
+  if (!url || !/^https?:/i.test(url)) return url;
+  try {
+    const res = await fetch(`${API}/image?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return url;
+    return await resizeImage(await res.blob(), 900, 0.75);
+  } catch { return url; }
+}
+
+// Recipes imported before photos were copied still point at the website.
+// Copy them once, in the background, one at a time.
+let migratingImages = false;
+async function migrateImages() {
+  if (migratingImages || !navigator.onLine) return;
+  migratingImages = true;
+  try {
+    for (const r of liveRecipes()) {
+      if (!/^https?:/i.test(r.image || '')) continue;
+      const copy = await copyImage(r.image);
+      const cur = recipes.get(r.id);
+      if (copy.startsWith('data:') && cur && !cur.deleted && cur.image === r.image) await saveRecipe({ ...cur, image: copy });
+    }
+  } finally { migratingImages = false; }
+}
+
+// ── Back-ups ────────────────────────────────────────────────────────────────
+
+const BACKUP_NAG_DAYS = 30;
+
+function backupBanner() {
+  // A shared book is backed up daily on the server; only nag otherwise.
+  const n = liveRecipes().length;
+  const due = Date.now() - Math.max(settings.lastExport, settings.backupNagAt) > BACKUP_NAG_DAYS * 86400000;
+  if (settings.book || n < 3 || !due) return '';
+  return `<div class="banner"><span>💾</span><div><b>Tijd voor een back-up</b>
+    Je ${n} recepten staan alleen op dit toestel. <a href="javascript:void 0" onclick="exportBackup()">Nu opslaan</a>
+    of maak een gedeeld kookboek in Instellingen — dat wordt elke dag automatisch bewaard.</div>
+    <button class="x" onclick="settings.backupNagAt=Date.now();saveSettings();render()" aria-label="Later">✕</button></div>`;
+}
+
+async function loadSnapshots() {
+  const el = $('#snapshots');
+  if (!el || !settings.book) return;
+  try {
+    const res = await fetch(`${API}/b/${encodeURIComponent(settings.book)}/snapshots`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    const list = data.snapshots || [];
+    el.innerHTML = list.length ? list.map(s => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)">
+        <span style="flex:1">${new Date(s.created).toLocaleString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}<br>
+          <span class="hint" style="margin:0">${s.count} recepten</span></span>
+        <button class="btn ghost" style="min-height:38px;padding:8px 14px" onclick="restoreSnapshot(${s.id})">Terugzetten</button>
+      </div>`).join('')
+      : '<p class="hint" style="margin:0">Nog geen back-ups. De eerste wordt gemaakt bij de eerste wijziging van morgen.</p>';
+  } catch {
+    el.innerHTML = '<p class="hint" style="margin:0">Back-ups konden niet geladen worden (geen verbinding?).</p>';
+  }
+}
+
+async function restoreSnapshot(id) {
+  if (!confirm('Alle recepten terugzetten zoals ze toen waren? Recepten die later zijn toegevoegd blijven staan.')) return;
+  try {
+    const res = await fetch(`${API}/b/${encodeURIComponent(settings.book)}/snapshots/${id}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    for (const r of data.recipes) {
+      const { deleted, deletedAt, ...rest } = r;
+      await saveRecipe(rest);
+    }
+    toast(`${data.recipes.length} recepten teruggezet`);
+    render();
+  } catch (e) {
+    toast('Terugzetten lukte niet: ' + (e.message || 'geen verbinding'));
+  }
 }
 
 function recipeAsText(r, servings) {
@@ -983,8 +1597,11 @@ async function importFromUrl(urlArg) {
     const res = await fetch(`${API}/import?url=${encodeURIComponent(url)}`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
+    if (btn) btn.innerHTML = '<span class="spinner"></span> Foto bewaren…';
+    // Keep our own copy so the photo works offline and survives the site.
+    const image = await copyImage(data.image);
     startDraft({
-      title: data.title, image: data.image, source: data.source || url,
+      title: data.title, image, source: data.source || url,
       servings: data.servings, time: data.time,
       ingredients: data.ingredients, steps: data.steps,
       notes: '', imported: true, partial: data.partial,
@@ -1125,6 +1742,7 @@ async function saveDraft() {
   if (!d.title.trim()) { toast('Geef het recept een naam'); $('#f-title').focus(); return; }
   const prev = d.id ? recipes.get(d.id) : null;
   const r = {
+    ...prev, // keeps favourite, rating and cooking history
     id: d.id || newId(),
     createdAt: prev?.createdAt || Date.now(),
     title: d.title.trim(), image: d.image || '', source: d.source || '',
@@ -1182,18 +1800,33 @@ function renderSettings(view) {
     </div>
 
     <div class="card">
-      <h2>💾 Back-up</h2>
-      <p>${n} ${n === 1 ? 'recept' : 'recepten'} op dit toestel. Bewaar een kopie als bestand, of zet een back-up terug.</p>
+      <h2>💾 Back-ups</h2>
+      ${settings.book
+        ? `<p>Het gedeelde kookboek wordt elke dag automatisch bewaard (de laatste 14 dagen). Zo kun je een foute wijziging terugdraaien.</p>
+           <div id="snapshots" style="margin-bottom:16px"><p class="hint" style="margin:0">Laden…</p></div>`
+        : `<p>Je recepten staan alleen op dit toestel. Maak een gedeeld kookboek voor automatische dagelijkse back-ups, of bewaar af en toe een bestand.</p>`}
+      <p class="hint" style="margin:0 0 10px">${n} ${n === 1 ? 'recept' : 'recepten'} · laatste bestand: ${settings.lastExport ? daysAgo(settings.lastExport) : 'nog nooit'}</p>
       <div class="row">
         <button class="btn" onclick="exportBackup()">Opslaan als bestand</button>
-        <label class="btn">Terugzetten<input type="file" accept="application/json,.json" hidden onchange="importBackup(this)"></label>
+        <label class="btn">Bestand terugzetten<input type="file" accept="application/json,.json" hidden onchange="importBackup(this)"></label>
       </div>
     </div>
+
+    ${trashedRecipes().length ? `<div class="card">
+      <h2>🗑️ Onlangs verwijderd</h2>
+      <p>Verwijderde recepten blijven ${TRASH_DAYS} dagen bewaard.</p>
+      ${trashedRecipes().map(r => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)">
+          <span style="flex:1;min-width:0">${esc(r.title)}<br><span class="hint" style="margin:0">verwijderd ${daysAgo(r.deletedAt)}</span></span>
+          <button class="btn ghost" style="min-height:38px;padding:8px 14px" onclick="restoreRecipe('${esc(r.id)}').then(()=>{toast('Teruggezet');render()})">Terugzetten</button>
+        </div>`).join('')}
+    </div>` : ''}
 
     <div class="card">
       <h2>📲 Installeren</h2>
       <p style="margin:0">${isStandalone() ? 'Kookboek is geïnstalleerd. 👍' : '<b>iPhone:</b> open deze pagina in Safari → deel-icoon → <i>Zet op beginscherm</i>.<br><b>Android:</b> Chrome → menu ⋮ → <i>App installeren</i> of <i>Toevoegen aan startscherm</i>.'}</p>
     </div>`;
+  loadSnapshots();
 }
 
 async function createBook() {
@@ -1230,14 +1863,23 @@ function renderJoin(view, code) {
     </div>`;
 }
 
-function exportBackup() {
+async function exportBackup() {
   const data = { app: 'kookboek', version: 1, exportedAt: new Date().toISOString(), recipes: liveRecipes() };
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `kookboek-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  const name = `kookboek-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([JSON.stringify(data)], name, { type: 'application/json' });
+  // On phones the share sheet lets you put it straight in iCloud/Google Drive.
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Kookboek back-up' }); }
+    catch (e) { if (e.name === 'AbortError') return; }
+  } else {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  settings.lastExport = Date.now(); saveSettings();
+  render();
 }
 
 async function importBackup(input) {
@@ -1285,9 +1927,15 @@ function takeSharedUrl() {
   render();
   if (sharedUrl) importFromUrl(sharedUrl);
 
+  renderTimers();
+  setInterval(tickTimers, 1000);
+
   scheduleSync(0);
   setInterval(() => { if (document.visibilityState === 'visible') scheduleSync(0); }, 60000);
-  window.addEventListener('online', () => scheduleSync(0));
+  window.addEventListener('online', () => { scheduleSync(0); migrateImages(); });
+  emptyOldTrash();
+  // After the first sync, so both phones don't copy the same photos at once.
+  setTimeout(migrateImages, 5000);
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});

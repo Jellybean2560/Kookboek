@@ -4,20 +4,33 @@
 //   GET  /import?url=...   Fetch a recipe page and return its schema.org Recipe
 //                          data, normalised. Only the parsed recipe is returned,
 //                          never the raw page, so this is not an open proxy.
+//   GET  /image?url=...    Fetch one image (image/* only, max 8 MB) so the app
+//                          can keep its own copy of an imported recipe photo.
+//   POST /scan             {images: [dataURL]} -> recipe read from photos.
+//                          Rate-limited per IP and per day (see Limiter).
 //   POST /b/{book}/sync    {since, changes: [recipe]} -> {seq, changes: [recipe]}
+//   GET  /b/{book}/snapshots          -> {snapshots: [{id, created, count}]}
+//   GET  /b/{book}/snapshots/{id}     -> {created, recipes: [recipe]}
 //                          The book code doubles as the shared secret.
 //
 // Every book is one Durable Object. Each stored recipe carries the server
 // sequence number of its last write; a phone sends the highest sequence it
 // has seen and gets back everything written after it. Conflicts are decided
 // per recipe by the client's updatedAt (last edit wins). Deletions are kept as
-// tombstones so they reach every phone.
+// tombstones so they reach every phone. Once a day, before applying the first
+// changes, the book copies its live recipes into a snapshot (14 are kept).
 
 import { DurableObject } from "cloudflare:workers";
 
 const BOOK_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const MAX_RECIPE_BYTES = 1_500_000;
 const MAX_CHANGES = 500;
+const MAX_IMAGE_BYTES = 8_000_000;
+const SNAPSHOT_EVERY_MS = 20 * 3600_000;
+const SNAPSHOTS_KEPT = 14;
+// The free Workers AI allowance is 10,000 neurons/day, ~150 per scan.
+const SCANS_PER_IP_PER_DAY = 25;
+const SCANS_PER_DAY = 55;
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -32,11 +45,15 @@ export default {
       if (url.pathname === "/import" && request.method === "GET") {
         return json(await importRecipe(url.searchParams.get("url")));
       }
+      if (url.pathname === "/image" && request.method === "GET") {
+        return await proxyImage(url.searchParams.get("url"));
+      }
       if (url.pathname === "/scan" && request.method === "POST") {
+        await checkScanLimit(request, env);
         return json(await scanRecipe(request, env));
       }
-      const m = url.pathname.match(/^\/b\/([^/]+)\/sync$/);
-      if (m && request.method === "POST") {
+      const m = url.pathname.match(/^\/b\/([^/]+)\/(sync|snapshots)(?:\/(\d+))?$/);
+      if (m) {
         if (!BOOK_RE.test(m[1])) return json({ error: "Ongeldige kookboekcode" }, 400);
         const stub = env.BOOKS.get(env.BOOKS.idFromName(m[1]));
         // The Book's json() responses already carry the CORS headers.
@@ -62,15 +79,33 @@ export class Book extends DurableObject {
         data       TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS recipes_seq ON recipes(seq);
+      CREATE TABLE IF NOT EXISTS snapshots (id INTEGER PRIMARY KEY, count INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS snapshot_recipes (snap INTEGER NOT NULL, data TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS snapshot_recipes_snap ON snapshot_recipes(snap);
     `);
   }
 
   async fetch(request) {
+    const parts = new URL(request.url).pathname.split("/");
+    if (parts[3] === "snapshots" && request.method === "GET") {
+      if (!parts[4]) {
+        const list = this.sql.exec("SELECT id, count FROM snapshots ORDER BY id DESC").toArray();
+        return json({ snapshots: list.map(s => ({ id: s.id, created: s.id, count: s.count })) });
+      }
+      const id = +parts[4];
+      if (!this.sql.exec("SELECT id FROM snapshots WHERE id = ?", id).toArray().length) return json({ error: "Back-up niet gevonden" }, 404);
+      const rows = this.sql.exec("SELECT data FROM snapshot_recipes WHERE snap = ?", id).toArray();
+      return json({ created: id, recipes: rows.map(r => JSON.parse(r.data)) });
+    }
+    if (parts[3] !== "sync" || request.method !== "POST") return json({ error: "not found" }, 404);
+
     let body;
     try { body = await request.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
     const since = Number.isInteger(body.since) ? body.since : 0;
     const changes = Array.isArray(body.changes) ? body.changes : [];
     if (changes.length > MAX_CHANGES) return json({ error: "Te veel wijzigingen in één keer" }, 400);
+
+    if (changes.length) this.maybeSnapshot();
 
     let seq = this.sql.exec("SELECT value FROM meta WHERE key = 'seq'").toArray()[0]?.value ?? 0;
     for (const r of changes) {
@@ -91,6 +126,80 @@ export class Book extends DurableObject {
       .toArray().map(row => JSON.parse(row.data));
     return json({ seq, changes: out });
   }
+
+  // Copies the book as it was *before* the day's first change, so a bad edit
+  // or delete can be rolled back from Instellingen.
+  maybeSnapshot() {
+    const now = Date.now();
+    const last = this.sql.exec("SELECT MAX(id) AS id FROM snapshots").toArray()[0]?.id || 0;
+    if (now - last < SNAPSHOT_EVERY_MS) return;
+    const live = "json_extract(data, '$.deleted') IS NOT 1";
+    const count = this.sql.exec(`SELECT COUNT(*) AS n FROM recipes WHERE ${live}`).toArray()[0].n;
+    if (!count) return;
+    this.sql.exec(`INSERT INTO snapshot_recipes (snap, data) SELECT ?, data FROM recipes WHERE ${live}`, now);
+    this.sql.exec("INSERT INTO snapshots (id, count) VALUES (?, ?)", now, count);
+    const old = this.sql.exec("SELECT id FROM snapshots ORDER BY id DESC LIMIT -1 OFFSET ?", SNAPSHOTS_KEPT).toArray();
+    for (const s of old) {
+      this.sql.exec("DELETE FROM snapshot_recipes WHERE snap = ?", s.id);
+      this.sql.exec("DELETE FROM snapshots WHERE id = ?", s.id);
+    }
+  }
+}
+
+// Counts scans per IP and in total, per UTC day.
+export class Limiter extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.sql = ctx.storage.sql;
+    this.sql.exec("CREATE TABLE IF NOT EXISTS hits (key TEXT NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (key, day))");
+  }
+
+  async take(key) {
+    const day = new Date().toISOString().slice(0, 10);
+    this.sql.exec("DELETE FROM hits WHERE day <> ?", day);
+    const get = (k) => this.sql.exec("SELECT n FROM hits WHERE key = ? AND day = ?", k, day).toArray()[0]?.n || 0;
+    if (get(key) >= SCANS_PER_IP_PER_DAY) return "ip";
+    if (get("*") >= SCANS_PER_DAY) return "all";
+    for (const k of [key, "*"]) {
+      this.sql.exec("INSERT INTO hits (key, day, n) VALUES (?, ?, 1) ON CONFLICT(key, day) DO UPDATE SET n = n + 1", k, day);
+    }
+    return "";
+  }
+}
+
+async function checkScanLimit(request, env) {
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const blocked = await env.LIMITER.get(env.LIMITER.idFromName("scan")).take(ip);
+  if (blocked === "ip") throw httpError(429, `Vandaag zijn er al ${SCANS_PER_IP_PER_DAY} foto's gescand vanaf deze verbinding. Morgen kan het weer — of plak de tekst.`);
+  if (blocked) throw httpError(429, "Het gratis scan-tegoed voor vandaag is op. Probeer het morgen opnieuw, of plak de tekst.");
+}
+
+// ── Image copy ──────────────────────────────────────────────────────────────
+
+async function proxyImage(target) {
+  let u;
+  try { u = new URL(target); } catch { throw httpError(400, "Ongeldige link"); }
+  if (u.protocol !== "https:" && u.protocol !== "http:") throw httpError(400, "Ongeldige link");
+  let res;
+  try {
+    res = await fetch(u.toString(), {
+      redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/jpeg,image/png,image/*;q=0.8",
+        // Some sites refuse images requested without their own page as referrer.
+        "Referer": u.origin + "/",
+      },
+    });
+  } catch {
+    throw httpError(502, "De foto kon niet opgehaald worden");
+  }
+  const type = res.headers.get("Content-Type") || "";
+  if (!res.ok || !/^image\//i.test(type)) throw httpError(502, "De foto kon niet opgehaald worden");
+  if (+res.headers.get("Content-Length") > MAX_IMAGE_BYTES) throw httpError(413, "De foto is te groot");
+  const buf = await res.arrayBuffer();
+  if (buf.byteLength > MAX_IMAGE_BYTES) throw httpError(413, "De foto is te groot");
+  return new Response(buf, { headers: { "Content-Type": type, "Cache-Control": "public, max-age=86400", ...CORS } });
 }
 
 // ── Photo scan ──────────────────────────────────────────────────────────────
@@ -140,7 +249,7 @@ async function scanRecipe(request, env) {
     });
   } catch (e) {
     const msg = String(e && e.message || e);
-    if (/neuron|limit|quota|429|exceeded/i.test(msg)) throw httpError(429, "Het gratis scan-tegoed voor vandaag is op. Probeer het morgen opnieuw, of plak de tekst.");
+    if (/neuron|quota|429|exceeded/i.test(msg)) throw httpError(429, "Het gratis scan-tegoed voor vandaag is op. Probeer het morgen opnieuw, of plak de tekst.");
     throw httpError(502, "Het scannen lukte niet: " + msg.slice(0, 200));
   }
 
