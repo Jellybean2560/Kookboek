@@ -9,6 +9,7 @@
 //   POST /scan             {images: [dataURL]} -> recipe read from photos.
 //   POST /classify         {recipe} -> {bases, proteins, time} chosen by AI.
 //   POST /assist           {mode: "vega"|"side", recipe} -> variation / side dishes.
+//   POST /translate        {recipe} -> the recipe in Dutch with metric units.
 //                          AI routes share a daily budget per IP and in total.
 //   POST /b/{book}/sync    {since, changes: [recipe]} -> {seq, changes: [recipe]}
 //   GET  /b/{book}/snapshots          -> {snapshots: [{id, created, count}]}
@@ -33,7 +34,7 @@ const SNAPSHOTS_KEPT = 14;
 // The free Workers AI allowance is 10,000 neurons/day. Each AI call is
 // charged an estimate against a daily budget that stays below that, so one
 // connection can't use it all up and the total never runs into the hard cap.
-const AI_COST = { scan: 160, classify: 30, assist: 90 };
+const AI_COST = { scan: 160, classify: 30, assist: 90, translate: 120 };
 const AI_BUDGET_PER_IP = 4500;
 const AI_BUDGET_PER_DAY = 9000;
 const CORS = {
@@ -61,6 +62,11 @@ export default {
         const body = await readRecipeBody(request);
         await chargeAI(request, env, "classify");
         return json(await classifyRecipe(body, env));
+      }
+      if (url.pathname === "/translate" && request.method === "POST") {
+        const body = await readRecipeBody(request);
+        await chargeAI(request, env, "translate");
+        return json(await translateRecipe(body, env));
       }
       if (url.pathname === "/assist" && request.method === "POST") {
         const body = await readRecipeBody(request);
@@ -193,6 +199,9 @@ async function chargeAI(request, env, kind) {
 // ── AI help with categories and variations ──────────────────────────────────
 
 const AI_TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+// Compared Oct 2026 on an English recipe: Mistral Small was fastest (~30 s vs
+// ~80 s for Llama 4 Scout) and kept spoons as el/tl where the others drifted.
+const TRANSLATE_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 const BASE_IDS = ["aardappelen", "rijst", "pasta", "brood", "anders"];
 const PROTEIN_IDS = ["kip", "gehakt", "rund", "varken", "vis", "zeevruchten", "vega", "anders"];
 
@@ -200,17 +209,20 @@ async function readRecipeBody(request) {
   if (+request.headers.get("Content-Length") > 200_000) throw httpError(413, "Recept te groot");
   let body;
   try { body = await request.json(); } catch { throw httpError(400, "Ongeldige aanvraag"); }
-  const lines = (v) => toArray(v).filter(s => typeof s === "string").map(s => s.slice(0, 300)).slice(0, 80);
+  const lines = (v) => toArray(v).filter(s => typeof s === "string").map(s => s.slice(0, 1500)).slice(0, 80);
   const r = body.recipe || {};
-  const recipe = { title: String(r.title || "").slice(0, 200), servings: r.servings || null, ingredients: lines(r.ingredients), steps: lines(r.steps) };
+  const recipe = {
+    title: String(r.title || "").slice(0, 200), servings: r.servings || null,
+    ingredients: lines(r.ingredients), steps: lines(r.steps), notes: String(r.notes || "").slice(0, 2000),
+  };
   if (!recipe.title && !recipe.ingredients.length) throw httpError(400, "Geen recept ontvangen");
   return { mode: body.mode, recipe };
 }
 
-async function askModel(env, prompt, maxTokens) {
+async function askModel(env, prompt, maxTokens, model = AI_TEXT_MODEL) {
   let out;
   try {
-    out = await env.AI.run(AI_TEXT_MODEL, { messages: [{ role: "user", content: prompt }], max_tokens: maxTokens, temperature: 0.2 });
+    out = await env.AI.run(model, { messages: [{ role: "user", content: prompt }], max_tokens: maxTokens, temperature: 0.2 });
   } catch (e) {
     const msg = String(e && e.message || e);
     if (/neuron|quota|429|exceeded/i.test(msg)) throw httpError(429, "Het gratis AI-tegoed voor vandaag is op. Morgen kan het weer.");
@@ -240,6 +252,49 @@ Antwoord ALLEEN met JSON: {"bases": [], "proteins": [], "time": 0}`;
   const pick = (v, allowed) => [...new Set(toArray(v).map(x => String(x).toLowerCase().trim()).filter(x => allowed.includes(x)))];
   const time = parseInt(out.time, 10);
   return { bases: pick(out.bases, BASE_IDS), proteins: pick(out.proteins, PROTEIN_IDS), time: time > 0 && time < 1440 ? time : null };
+}
+
+// Translates a recipe into Dutch once, while it is being added, and converts
+// American units on the way so the app can scale and add them up.
+async function translateRecipe({ recipe }, env) {
+  const prompt = `Vertaal dit recept naar het Nederlands (zoals in België gebruikt, bv. "ajuin" mag, "ui" ook). Zet tegelijk alle Amerikaanse en Britse eenheden om naar metrische:
+- pounds/lb en ounces/oz → gram (afgerond, bv. 450 g); vloeistoffen in fl oz → ml
+- cups → ml voor vloeistoffen, gram voor droge ingrediënten (bloem 1 cup ≈ 125 g, suiker ≈ 200 g, rijst ≈ 185 g, gehakte groenten ≈ 130 g), of een natuurlijke Nederlandse maat
+- tablespoon/tbsp → el en teaspoon/tsp → tl, NOOIT ml (½ teaspoon → ½ tl, 2-3 tablespoons → 2-3 el)
+- verse kruiden in cups → "1 handvol" of "1 bosje", geen gram
+- °F → °C (350°F = 175°C), inches → cm
+- "1 14-ounce can" → "1 blik (400 g)"
+
+Regels:
+- Behoud de volgorde en het aantal ingrediënten en stappen. Elk ingrediënt begint met de hoeveelheid, dan eenheid, dan het product (bv. "450 g stevige witte vis (kabeljauw, heilbot)").
+- Regels die met "# " beginnen zijn tussenkopjes: vertaal ze en houd "# " ervoor.
+- Gebruik gangbare Nederlandse namen: shallots → sjalotten, cilantro → koriander, scallions → lente-ui, bell pepper → paprika, kaffir lime leaves → kaffirlimoenblaadjes, lemongrass → citroengras, fish sauce → vissaus, soy sauce → sojasaus, stock/broth → bouillon, garlic cloves → teentjes knoflook, lime → limoen, heavy cream → room, ground beef → gehakt, green beans → sperziebonen.
+- Gebruik in ingrediënten en stappen dezelfde woorden voor hetzelfde product (staat er "vissaus" bij de ingrediënten, schrijf dan ook "vissaus" in de stappen).
+- Vertaal ook de stappen volledig en natuurlijk; hoeveelheden en temperaturen in de stappen ook omzetten.
+- Niets weglaten of verzinnen.
+
+Recept:
+Titel: ${recipe.title}
+Ingrediënten:
+${recipe.ingredients.map(i => "- " + i).join("\n")}
+Bereiding:
+${recipe.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+${recipe.notes ? `Notities: ${recipe.notes}` : ""}
+
+Antwoord ALLEEN met JSON:
+{"title": "", "ingredients": [], "steps": [], "notes": ""}`;
+  const out = await askModel(env, prompt, 3000, TRANSLATE_MODEL);
+  const lines = (v) => toArray(v).map(x => clean(typeof x === "string" ? x : x?.text || "")).filter(Boolean);
+  const result = {
+    title: clean(out.title), notes: clean(out.notes),
+    ingredients: lines(out.ingredients).map(l => l.replace(/^[-•]\s*/, "")),
+    steps: lines(out.steps).map(s => s.replace(/^\d+[.)]\s*/, "")),
+  };
+  // A translation that lost lines is worse than none.
+  if (!result.title || result.ingredients.length < recipe.ingredients.length * 0.8 || result.steps.length < recipe.steps.length * 0.6) {
+    throw httpError(502, "De vertaling was onvolledig. Probeer het nog eens.");
+  }
+  return result;
 }
 
 async function assistRecipe({ mode, recipe }, env) {

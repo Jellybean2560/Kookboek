@@ -1115,6 +1115,9 @@ function renderDetail(view, id, fresh) {
       <div class="stars" role="group" aria-label="Beoordeling">${[1, 2, 3, 4, 5].map(n =>
         `<button class="${n <= (r.rating || 0) ? 'on' : ''}" onclick="setRating('${esc(r.id)}', ${n})" aria-label="${n} ${n === 1 ? 'ster' : 'sterren'}">★</button>`).join('')}</div>
     </div>
+    ${looksEnglish(r) ? `<div class="banner"><span>🌐</span><div><b>Dit recept is Engelstalig</b>
+      Vertaal het één keer naar het Nederlands, met gram en ml. Dan werken omrekenen, de boodschappenlijst en de kookmodus beter.
+      <button class="btn primary" style="margin-top:8px;min-height:38px;padding:8px 14px" onclick="translateSaved('${esc(r.id)}', this)">🌐 Vertaal naar het Nederlands</button></div></div>` : ''}
     ${r.lastCooked ? `<p class="hint">Laatst gekookt ${daysAgo(r.lastCooked)}${r.cookCount > 1 ? ` · al ${r.cookCount}× gemaakt` : ''}</p>` : ''}
 
     <div class="servings">
@@ -1337,12 +1340,91 @@ const stemOf = (w) => w.length > 5 ? w.replace(/(tjes|jes|en|es|s|je)$/, '') : w
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const mentions = (text, word) => new RegExp('(^|[^a-zà-ÿ])' + escRe(stemOf(word))).test(text);
 
+// English recipes too: their units and adjectives must not count as products.
+'teaspoon teaspoons tsp tablespoon tablespoons tbsp cup cups pound pounds lb lbs ounce ounces oz gram grams kilogram kilograms can cans jar jars package packages pack clove cloves sprig sprigs stalk stalks bunch bunches piece pieces slice slices handful pinch dash inch inches quart pint liters litre litres teen teentje teentjes'
+  .split(' ').forEach(w => UNIT_WORDS.add(w));
+('large small medium big fresh hot firm finely roughly coarsely thinly very diced chopped minced sliced grated crushed peeled optional sub substitute and the an to taste for serving garnish about extra virgin ground whole dried frozen cooked raw boneless skinless thick thicker cuts best great red green yellow white black one two three four half quarter plus more needed ' +
+  'gesnipperd gesneden geperst geschild fijngesneden fijngehakt gehalveerd ontpit groene gele witte rode zwarte grote kleine flinke heel zeer ' +
+  'rood groen geel wit zwart blokjes reepjes stukjes plakjes ringen partjes schijfjes').split(' ').forEach(w => STOP_WORDS.add(w));
+
+const GENERIC_HEADS = new Set(['root', 'powder', 'poeder', 'seeds', 'zaad', 'zaadjes', 'flakes', 'vlokken']);
+// "kipfilet", "kippenbillen", "tomatenblokjes": the step may just say "kip"
+// or "tomaten".
+const COMPOUND_TAIL = /(filets?|billen|dijen|vleugels|vleugeltjes|borst|blokjes|reepjes|stukjes|blaadjes|gehakt|teentjes|tenen|wortel)$/;
+const normWord = (w) => stemOf(SYNONYMS[w] || w);
+const stepTokens = (text) => text.toLowerCase().split(/[^a-zà-ÿ]+/).filter(Boolean).map(normWord);
+
+// The phrases an ingredient can be called in a step: "8 kaffir lime leaves"
+// → "kaffir lime leaves", "lime leaves", "leaves"; "coconut or olive oil" →
+// "coconut oil", "olive oil", "oil"; "300 g kipfilet" → "kipfilet", "kip".
+function ingredientPatterns(line) {
+  const pats = new Map();
+  const add = (words) => { if (words.length) pats.set(words.join(' '), words); };
+  let core = line.toLowerCase().replace(QTY_RE, ' ').replace(/\([^)]*\)/g, ' ');
+  // Dutch elision: "kokos- of olijfolie" is kokosolie or olijfolie. We don't
+  // know where the shared part starts, so try every split of the full word.
+  core = core.replace(/([a-zà-ÿ]{3,})-\s+(?:of|en)\s+([a-zà-ÿ]{4,})/g, (all, a, b) => {
+    for (let k = 3; k < b.length - 1; k++) add([normWord(a + b.slice(-k))]);
+    return b;
+  });
+  core = core.split(/\s[-–]\s|-\s/)[0];
+  for (const chunk of core.split(/[,;]/)) {
+    const alts = chunk.split(/\s(?:or|of)\s/).map(a => a.split(/[^a-zà-ÿ]+/)
+      .filter(w => w && !UNIT_WORDS.has(w) && !STOP_WORDS.has(w) && (w.length >= 3 || w === 'ui')));
+    const last = alts[alts.length - 1];
+    alts.forEach((words, i) => {
+      if (!words.length) return;
+      // A lone modifier shares the head of the last alternative.
+      if (words.length === 1 && i < alts.length - 1 && last.length > 1) words = [words[0], last[last.length - 1]];
+      const st = words.map(normWord);
+      add(st);
+      if (st.length > 2) add(st.slice(-2));
+      add(st.slice(-1));
+      const lastWord = words[words.length - 1];
+      if (GENERIC_HEADS.has(lastWord) && st.length > 1) add([st[st.length - 2]]);
+      const tail = lastWord.match(COMPOUND_TAIL);
+      if (tail && lastWord.length - tail[0].length >= 3) {
+        // Drop the linking "-en-"/"-s-": kippen → kip, varkens → varken.
+        const head = lastWord.slice(0, -tail[0].length).replace(/([a-z])\1en$/, '$1').replace(/(en|s)$/, '');
+        if (head.length >= 3) add([normWord(head)]);
+      }
+    });
+  }
+  return [...pats.values()];
+}
+
+// Which ingredients a step uses. Every mention in the step text goes to the
+// ingredient with the longest matching phrase, so "fish sauce" is the sauce
+// and not the fish, and "kaffir lime leaves" isn't the lime.
 function ingredientsForStep(r, text) {
-  const t = text.toLowerCase();
-  // Dutch compounds: "bouillon" in a step should find "kippenbouillon".
-  const stepWords = t.split(/[^a-zà-ÿ]+/).filter(w => w.length >= 5).map(stemOf);
-  return (r.ingredients || []).filter(l => !isHeading(l) && ingredientWords(l).some(w =>
-    mentions(t, w) || stepWords.some(sw => w.length > sw.length && stemOf(w).endsWith(sw))));
+  const toks = stepTokens(text);
+  const lines = (r.ingredients || []).map((l, idx) => ({ l, idx })).filter(x => !isHeading(x.l));
+  const cands = [];
+  for (const { l, idx } of lines) {
+    for (const p of ingredientPatterns(l)) {
+      for (let i = 0; i + p.length <= toks.length; i++) {
+        if (p.every((w, j) => toks[i + j] === w)) cands.push({ idx, start: i, len: p.length, score: p.length });
+      }
+      // Dutch compounds: "bouillon" in the step finds "kippenbouillon".
+      if (p.length === 1 && p[0].length >= 8) {
+        toks.forEach((t, i) => { if (t.length >= 5 && t !== p[0] && p[0].endsWith(t)) cands.push({ idx, start: i, len: 1, score: 0.5 }); });
+      }
+    }
+  }
+  cands.sort((a, b) => b.score - a.score);
+  const taken = new Map(), hit = new Set();
+  for (const c of cands) {
+    // Same phrase at the same place: both "salt" lines count. A weaker
+    // match there (e.g. "peper" inside "cayennepeper") does not.
+    const key = c.start + ':' + c.len + ':' + c.score;
+    const span = Array.from({ length: c.len }, (_, k) => c.start + k);
+    // Free, or claimed by the very same phrase (two "salt" lines both count).
+    if (span.every(i => !taken.has(i) || taken.get(i) === key)) {
+      span.forEach(i => taken.set(i, key));
+      hit.add(c.idx);
+    }
+  }
+  return lines.filter(x => hit.has(x.idx)).map(x => x.l);
 }
 
 function cookSteps(r) {
@@ -1579,6 +1661,9 @@ const UNIT_BASE = {
   ml: ['ml', 1], milliliter: ['ml', 1], cl: ['ml', 10], centiliter: ['ml', 10], dl: ['ml', 100], deciliter: ['ml', 100],
   l: ['ml', 1000], liter: ['ml', 1000],
   el: ['el', 1], eetlepel: ['el', 1], eetlepels: ['el', 1], tl: ['tl', 1], theelepel: ['tl', 1], theelepels: ['tl', 1],
+  grams: ['g', 1], kilogram: ['g', 1000], pound: ['g', 453.6], pounds: ['g', 453.6], lb: ['g', 453.6], lbs: ['g', 453.6],
+  ounce: ['g', 28.35], ounces: ['g', 28.35], oz: ['g', 28.35],
+  tablespoon: ['el', 1], tablespoons: ['el', 1], tbsp: ['el', 1], teaspoon: ['tl', 1], teaspoons: ['tl', 1], tsp: ['tl', 1],
 };
 
 // Things most kitchens have; listed separately so they don't clutter the list.
@@ -2279,6 +2364,79 @@ function refreshDraftTags() {
   if ($('#f-time') && draft.time && !$('#f-time').value) $('#f-time').value = draft.time;
 }
 
+// ── Translate English recipes, once, while adding them ─────────────────────
+
+const EN_MARKERS = /\b(the|and|with|until|into|add|stir|heat|minutes|cups?|tablespoons?|teaspoons?|pounds?|ounces?|over|serve|chopped|large|fresh)\b/g;
+const NL_MARKERS = /\b(de|het|een|en|met|tot|voeg|roer|laat|minuten|snijd|bak|ongeveer|eetlepels?|theelepels?|gram|el|tl)\b/g;
+
+function looksEnglish(r) {
+  const t = [r.title, ...(r.ingredients || []), ...(r.steps || [])].join(' ').toLowerCase();
+  const en = (t.match(EN_MARKERS) || []).length, nl = (t.match(NL_MARKERS) || []).length;
+  return en >= 6 && en > nl * 2;
+}
+
+const translatePayload = (r) => ({ title: r.title, servings: r.servings, ingredients: r.ingredients || [], steps: r.steps || [], notes: r.notes || '' });
+
+async function translateDraft(d) {
+  if (!navigator.onLine) { d.translateError = 'Geen verbinding'; return false; }
+  d.translating = true; d.translateError = '';
+  if (draft === d && currentRoute() === 'bewerk') render();
+  try {
+    const out = await aiPost('/translate', { recipe: translatePayload(d) });
+    if (draft !== d) return false;
+    d.original = { title: d.title, ingredients: d.ingredients, steps: d.steps, notes: d.notes };
+    Object.assign(d, { title: out.title, ingredients: out.ingredients, steps: out.steps, notes: out.notes || d.notes });
+    // The keyword guess was made on the English text; redo it in Dutch.
+    if (!d.aiTagged) Object.assign(d, guessTags(d.title, d.ingredients));
+    d.translated = true;
+    return true;
+  } catch (e) {
+    d.translateError = e.message || 'Vertalen lukte niet';
+    return false;
+  } finally {
+    d.translating = false;
+    if (draft === d && currentRoute() === 'bewerk') render();
+  }
+}
+
+function undoTranslation() {
+  if (!draft?.original) return;
+  Object.assign(draft, draft.original, { translated: false, original: null });
+  render();
+}
+
+// New imports: translate first when needed, then let the AI pick categories
+// on the Dutch text.
+async function prepareImported(d, classify) {
+  if (looksEnglish(d)) await translateDraft(d);
+  if (classify && draft === d) await classifyDraft(d);
+}
+
+function translateBannerHTML(d) {
+  if (d.translating) return `<div class="banner"><span class="spinner" style="flex:none;margin-top:3px"></span><div><b>Engelstalig recept — wordt vertaald</b>
+    Naar het Nederlands, met gram, ml, el en °C. Dat duurt ongeveer een halve minuut; pas intussen nog niets aan.</div></div>`;
+  if (d.translated) return `<div class="banner"><span>🌐</span><div><b>Vertaald uit het Engels</b>
+    Hoeveelheden omgezet naar metrische eenheden. Kijk ze even na. <a href="javascript:void 0" onclick="undoTranslation()">Origineel terugzetten</a></div></div>`;
+  if (looksEnglish(d)) return `<div class="banner"><span>🌐</span><div><b>Dit recept is Engelstalig</b>
+    ${d.translateError ? `Vertalen lukte niet: ${esc(d.translateError)}. ` : ''}<a href="javascript:void 0" onclick="translateDraft(draft)">${d.translateError ? 'Opnieuw proberen' : 'Vertaal naar het Nederlands'}</a></div></div>`;
+  return '';
+}
+
+async function translateSaved(id, btn) {
+  const prev = recipes.get(id);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Vertalen… (±30 sec)';
+  try {
+    const out = await aiPost('/translate', { recipe: translatePayload(prev) });
+    await saveRecipe({ ...recipes.get(id), title: out.title, ingredients: out.ingredients, steps: out.steps, notes: out.notes || prev.notes });
+    render();
+    toast('Vertaald naar het Nederlands 🌐', { label: 'Ongedaan maken', run: async () => { await saveRecipe({ ...prev }); render(); } });
+  } catch (e) {
+    toast(!navigator.onLine ? 'Geen verbinding' : e.message);
+    btn.disabled = false; btn.textContent = '🌐 Vertaal naar het Nederlands';
+  }
+}
+
 async function askAssist(id, mode, btn) {
   const r = recipes.get(id);
   const label = btn.textContent;
@@ -2527,11 +2685,13 @@ function importFromText() {
 // count as ingredients and longer sentences as steps.
 function parseRecipeText(text) {
   const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  const ingHead = /^(ingredi[eë]nten|benodigdheden|boodschappen|wat heb je nodig|nodig)\b/i;
-  const stepHead = /^(bereiding(swijze)?|werkwijze|instructies|zo maak je het|aan de slag|bereiden|recept)\b\s*:?$/i;
+  const ingHead = /^(ingredi[eë]nten|ingredients|benodigdheden|boodschappen|wat heb je nodig|nodig|you will need)\b/i;
+  const stepHead = /^(bereiding(swijze)?|werkwijze|instructies|zo maak je het|aan de slag|bereiden|recept|instructions|directions|method|preparation|steps)\b\s*:?$/i;
   const url = (text.match(/https?:\/\/\S+/) || [''])[0];
-  const servings = +(text.match(/(\d+)\s*(personen|pers\b|porties|persons|servings)/i) || [])[1] || null;
-  const time = +(text.match(/(\d+)\s*(min\b|minuten|minutes)/i) || [])[1] || null;
+  const servings = +(text.match(/(\d+)\s*(personen|pers\b|porties|persons|servings|people)/i) || text.match(/\b(?:serves|voor)\s+(\d+)/i) || [])[1] || null;
+  // Only a labelled total time; "bak 4 minuten" in a step is not the recipe's time.
+  const tm = text.match(/(?:bereidingstijd|totale tijd|kooktijd|total time|ready in|klaar in|tijd)\s*:?\s*(?:(\d+)\s*(?:u|uur|h|hours?)\s*)?(\d+)?\s*(?:min|minuten|minutes)?/i);
+  const time = tm && (tm[1] || tm[2]) ? (+tm[1] || 0) * 60 + (+tm[2] || 0) : null;
   const iI = lines.findIndex(l => ingHead.test(l));
   const iS = lines.findIndex((l, i) => i > iI && stepHead.test(l));
   const stripNum = (s) => s.replace(/^(stap\s*)?\d+[.)]\s*/i, '');
@@ -2558,7 +2718,7 @@ function startDraft(d) {
   if (!draft.bases) draft.bases = [];
   if (!draft.proteins) draft.proteins = [];
   if (location.hash === '#/bewerk/nieuw') render(); else location.hash = '#/bewerk/nieuw';
-  if (d.imported && !d.bases) setTimeout(() => classifyDraft(draft), 0);
+  if (d.imported) { const classify = !d.bases; setTimeout(() => prepareImported(draft, classify), 0); }
 }
 
 // ── Edit form ───────────────────────────────────────────────────────────────
@@ -2578,6 +2738,7 @@ function renderEdit(view, id) {
   view.innerHTML = `
     <div class="page-head"><button class="back" onclick="cancelEdit()" aria-label="Annuleren">✕</button><h1>${d.id ? 'Recept bewerken' : 'Nieuw recept'}</h1></div>
     ${d.imported ? `<div class="banner"><span>${d.partial ? '⚠️' : '✨'}</span><div><b>${d.partial ? 'Niet alles kon worden overgenomen' : d.scanned ? 'Recept gelezen van de foto' : 'Recept overgenomen'}</b>${d.partial ? 'Vul de ontbrekende delen aan' : d.scanned ? 'Controleer even de hoeveelheden' : 'Kijk het even na'} en vooral de categorieën — daarop zoekt <i>Wat eten we?</i>.${d.scanned ? ' Een foto van het gerecht kun je hieronder toevoegen.' : ''}</div></div>` : ''}
+    ${translateBannerHTML(d)}
 
     <div class="photo-edit">
       <div id="photo-preview">${thumbHTML(d)}</div>
@@ -2643,6 +2804,7 @@ function cancelEdit() {
 
 async function saveDraft() {
   const d = draft;
+  if (d.translating) { toast('Even wachten, het recept wordt nog vertaald'); return; }
   if (!d.title.trim()) { toast('Geef het recept een naam'); $('#f-title').focus(); return; }
   const prev = d.id ? recipes.get(d.id) : null;
   const r = {
