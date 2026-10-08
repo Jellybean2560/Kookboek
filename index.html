@@ -62,10 +62,11 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; }
+:root { --scale: 1; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: calc(16px * var(--scale))/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100vh;
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px);
 }
@@ -164,7 +165,7 @@ label.field > span { display: block; font-size: 14px; font-weight: 600; margin-b
 .hero img { width: 100%; max-height: 340px; object-fit: cover; display: block; }
 .hero .back { position: absolute; top: calc(env(safe-area-inset-top) + 14px); left: 14px; }
 .hero.noimg { height: calc(env(safe-area-inset-top) + 68px); }
-.detail-title { font-size: 28px; margin-bottom: 8px; }
+.detail-title { font-size: calc(28px * var(--scale)); margin-bottom: 8px; }
 .source { font-size: 14px; color: var(--muted); margin-bottom: 14px; display: block; }
 .servings {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -234,6 +235,56 @@ nav.tabs a .badge {
 nav.tabs a .ic:has(.badge:not([hidden])) { filter: none; opacity: 1; }
 
 /* Shopping list */
+.shop li { transition: transform .2s; position: relative; background: var(--bg); }
+.shop li.swiping { background: var(--ok-soft); }
+.shop li[style*="translateX"] { transition: none; }
+.pin-btn { flex: none; border: none; background: none; font-size: 15px; padding: 6px 2px; cursor: pointer; opacity: .35; filter: grayscale(1); }
+.pin-btn.on { opacity: 1; filter: none; }
+.cg-btn.pinned { background: var(--ok-soft); color: var(--ok); }
+.day-chip { border: none; background: var(--accent-soft); color: var(--text); border-radius: 999px; font-size: 12px; font-weight: 600; padding: 3px 9px; margin-top: 6px; cursor: pointer; }
+
+/* Week menu */
+.tonight { margin-bottom: 22px; }
+.week-strip { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px 22px; padding: 0 16px 6px; scrollbar-width: none; }
+.week-strip::-webkit-scrollbar { display: none; }
+.week-day { flex: none; width: 104px; text-decoration: none; color: inherit; background: none; border: none; padding: 0; text-align: left; font: inherit; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+.week-day b { display: block; font-size: 12px; text-transform: capitalize; color: var(--accent); margin-bottom: 4px; }
+.week-day .pic { width: 104px; height: 72px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 30px; overflow: hidden; }
+.week-day .pic img { width: 100%; height: 100%; object-fit: cover; }
+.week-day span { display: block; font-size: 13px; line-height: 1.25; margin-top: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.week-day.empty .pic { border: 2px dashed var(--line); background: transparent; color: var(--muted); font-size: 24px; }
+.week-day.empty span { color: var(--muted); }
+.day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.day-opt { border: 1.5px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.day-opt b { display: block; text-transform: capitalize; }
+.day-opt span { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day-opt.on { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Sheet */
+.sheet-wrap { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0); display: flex; align-items: flex-end; justify-content: center; transition: background .2s; }
+.sheet-wrap.open { background: rgba(0, 0, 0, .4); }
+.sheet { background: var(--bg); width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; border-radius: 20px 20px 0 0; padding: 20px 16px calc(env(safe-area-inset-bottom) + 20px); transform: translateY(30px); opacity: 0; transition: .2s; }
+.sheet-wrap.open .sheet { transform: none; opacity: 1; }
+.sheet-list { margin: 6px 0 0; padding-left: 20px; }
+.sheet-list li { margin-bottom: 4px; }
+.side-sugg { background: var(--surface); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.side-sugg p { margin: 2px 0 8px; }
+
+/* Cook log */
+.log { list-style: none; padding: 0; margin: 0 0 10px; }
+.log li { display: flex; gap: 10px; background: var(--surface); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.log li > div { flex: 1; }
+.log li b { font-size: 13px; color: var(--muted); font-weight: 600; }
+.log li p { margin: 2px 0 0; white-space: pre-wrap; }
+.log-x { border: none; background: none; color: var(--muted); cursor: pointer; align-self: flex-start; }
+
+/* Cook mode tools */
+.cook-tool { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; font-size: 17px; color: var(--text); padding: 0; }
+.cook-tool small { font-size: 11px; }
+.cook-tool.on { background: var(--accent); border-color: var(--accent); }
+
+.offline-pill { position: fixed; left: 12px; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 10px); z-index: 25; background: var(--text); color: var(--bg); border-radius: 999px; padding: 6px 12px; font-size: 12px; box-shadow: var(--shadow); max-width: calc(100% - 24px); }
+body.cooking .offline-pill { bottom: calc(env(safe-area-inset-bottom) + 96px); }
 .menu-row { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px 18px; padding: 0 16px 6px; scrollbar-width: none; }
 .menu-row::-webkit-scrollbar { display: none; }
 .menu-card { flex: none; width: 140px; position: relative; }
@@ -248,7 +299,7 @@ nav.tabs a .ic:has(.badge:not([hidden])) { filter: none; opacity: 1; }
 .menu-card .done { position: absolute; top: 6px; left: 6px; background: var(--ok); color: #fff; border-radius: 999px; font-size: 12px; padding: 2px 8px; font-weight: 600; }
 .shop { list-style: none; padding: 0; margin: 0 0 20px; }
 .shop li { display: flex; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
-.shop li .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line); flex: none; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; background: none; color: inherit; padding: 0; }
+.shop li .box { width: 30px; height: 30px; border-radius: 7px; border: 2px solid var(--line); flex: none; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; background: none; color: inherit; padding: 0; }
 .shop li .what { flex: 1; min-width: 0; cursor: pointer; }
 .shop li .from { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shop li.done .what { color: var(--muted); text-decoration: line-through; }
@@ -359,7 +410,7 @@ body.has-timers .cook { margin-top: -14px; padding-top: 10px; }
 .cook-body { flex: 1; }
 .cook-section { color: var(--accent); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
 .cook-stepno { color: var(--muted); font-size: 15px; margin-bottom: 8px; }
-.cook-text { font-size: 25px; line-height: 1.45; margin-bottom: 24px; }
+.cook-text { font-size: calc(25px * var(--scale)); line-height: 1.45; margin-bottom: 24px; }
 .cook-text .timer-chip { font-size: .8em; padding: 3px 12px; }
 .cook-need { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
 .cook-need h3 { margin-bottom: 6px; font-size: 14px; color: var(--muted); }
@@ -745,10 +796,14 @@ function render() {
   const [first, ...args] = path.split('/').map(decodeURIComponent);
   const name = first || 'vandaag';
   const view = $('#view');
+  if (name !== 'vandaag' && name !== 'recept') todayState.planDay = null;
   const pathChanged = path !== lastPath;
   lastPath = path;
   releaseWakeLock();
   document.body.classList.remove('cooking');
+  // Background syncs redraw too; only a real navigation closes an open sheet.
+  if (pathChanged) closeSheet();
+  if (name !== 'koken' && (cookState.listening || cookState.read)) { stopListening(); cookState.read = false; }
 
   const navFor = { recept: 'recepten', koken: 'recepten', bewerk: 'toevoegen', inhuis: 'vandaag', koppel: 'instellingen' };
   updateListBadge();
@@ -825,7 +880,7 @@ function renderToday(view, args) {
     view.innerHTML = `
       ${installBanner()}
       ${backupBanner()}
-      ${suggestionsHTML(all)}
+      ${todayState.planDay ? planDayBanner() : tonightHTML() + weekStripHTML() + suggestionsHTML(all)}
       <div class="step-label">Vraag 1 van 3</div>
       <h1 class="question">Waar hebben jullie zin in?</h1>
       <div class="choices">
@@ -845,6 +900,7 @@ function renderToday(view, args) {
     if (options.length === 1) { location.replace(`#/vandaag/${base}/${options[0][0].id}`); return; }
     view.innerHTML = `
       ${crumbs(baseLabel)}
+      ${planDayBanner()}
       <div class="step-label">Vraag 2 van 3</div>
       <h1 class="question">En welk vlees of vis?</h1>
       ${options.length ? `<div class="choices">
@@ -864,6 +920,7 @@ function renderToday(view, args) {
     const unknown = set.length - timed.length;
     view.innerHTML = `
       ${crumbs(baseLabel, proteinLabel)}
+      ${planDayBanner()}
       <div class="step-label">Vraag 3 van 3</div>
       <h1 class="question">Hoeveel tijd hebben jullie?</h1>
       <div class="choices">
@@ -886,6 +943,7 @@ function renderToday(view, args) {
 
   view.innerHTML = `
     ${crumbs(baseLabel, proteinLabel, ...(time === 'alles' ? [] : [timeLabel]))}
+    ${planDayBanner()}
     <h1 class="question" style="margin-bottom:6px">${total ? `${total} ${total === 1 ? 'idee' : 'ideeën'} voor vandaag` : 'Geen recepten gevonden'}</h1>
     <p class="hint" style="margin:0 0 16px">${total > 1 ? 'Wat het langst niet op tafel kwam, staat bovenaan.' : ''}
       ${recentCount && !everythingRecent ? `${hide ? `${recentCount} van deze week ${recentCount === 1 ? 'is' : 'zijn'} verborgen.` : ''}
@@ -1070,10 +1128,7 @@ function renderDetail(view, id, fresh) {
     ${factor !== 1 ? `<p class="scaled-note">Hoeveelheden omgerekend van ${base} naar ${detailState.servings} personen. <a href="javascript:void 0" onclick="detailState.servings=${base};render()">Origineel</a></p>` : ''}
 
     ${stepIdx.length ? `<a class="btn primary block cook-start" href="#/koken/${encodeURIComponent(r.id)}/0">👩‍🍳 Start kookmodus</a>` : ''}
-    ${planFor(r.id)
-      ? `<div class="cooked-bar" style="background:var(--surface-2)">🛒 <span style="flex:1">Op de boodschappenlijst voor ${planFor(r.id).servings} personen</span>
-          <a href="#/boodschappen" style="font-weight:600">Bekijk</a></div>`
-      : `<button class="btn ghost block" style="margin:-4px 0 16px" onclick="addPlan('${esc(r.id)}', detailState.servings)">🛒 Op de boodschappenlijst (${detailState.servings} pers.)</button>`}
+    ${planBarHTML(r)}
 
     <h2 class="section-title">Ingrediënten</h2>
     <ul class="ingredients">${ingredients || '<li class="head" style="color:var(--muted)">Geen ingrediënten ingevuld</li>'}</ul>
@@ -1085,6 +1140,14 @@ function renderDetail(view, id, fresh) {
 
     <div class="cooked-bar">✅ <span style="flex:1">${r.lastCooked && startOfDay(r.lastCooked) === startOfDay(Date.now()) ? 'Vandaag gekookt — smakelijk!' : 'Gemaakt? Dan komt dit gerecht een tijdje minder vaak bovenaan.'}</span>
       ${r.lastCooked && startOfDay(r.lastCooked) === startOfDay(Date.now()) ? '' : `<button class="btn primary" style="min-height:38px;padding:8px 14px" onclick="markCooked('${esc(r.id)}')">Gekookt</button>`}
+    </div>
+
+    ${cookLogHTML(r)}
+
+    <h2 class="section-title">✨ AI-hulp</h2>
+    <div class="row" style="margin-bottom:20px">
+      ${effProteins(r).every(p => p === 'vega') ? '' : `<button class="btn" onclick="askAssist('${esc(r.id)}','vega',this)">🥦 Maak vegetarisch</button>`}
+      <button class="btn" onclick="askAssist('${esc(r.id)}','side',this)">🍽️ Wat past erbij?</button>
     </div>
     <div class="row" style="margin-bottom:24px">
       <a class="btn" href="#/bewerk/${encodeURIComponent(r.id)}">✏️ Bewerken</a>
@@ -1113,8 +1176,8 @@ async function markCooked(id) {
   r.lastCooked = Date.now();
   r.cookCount = (r.cookCount || 0) + 1;
   await saveRecipe(r);
-  toast('Smakelijk! 🍽️');
   render();
+  openLogSheet(id, true);
 }
 async function removeRecipe(id) {
   const r = recipes.get(id);
@@ -1308,21 +1371,25 @@ function renderCook(view, id, idx) {
   const factor = detailState.servings / (r.servings || 4);
   const need = ingredientsForStep(r, step.text);
   const last = i === steps.length - 1;
-  const to = (n) => `location.replace('#/koken/${encodeURIComponent(id)}/${n}')`;
+  const to = (n) => `cookGo(${n})`;
   document.body.classList.add('cooking');
   keepAwake();
+  cookState.id = id; cookState.i = i; cookState.steps = steps;
 
   view.innerHTML = `
     <div class="cook">
       <div class="cook-top">
-        <button class="back" onclick="location.replace('#/recept/${encodeURIComponent(id)}')" aria-label="Kookmodus sluiten">✕</button>
+        <button class="back" onclick="stopListening();location.replace('#/recept/${encodeURIComponent(id)}')" aria-label="Kookmodus sluiten">✕</button>
         <div class="title">${esc(r.title)}</div>
-        <span class="chip">👥 ${detailState.servings}</span>
+        <button class="cook-tool${cookState.read ? ' on' : ''}" onclick="toggleReadAloud()" aria-label="Voorlezen" title="Voorlezen">🔊</button>
+        ${SpeechRec ? `<button class="cook-tool${cookState.listening ? ' on' : ''}" onclick="toggleListening()" aria-label="Spraakbediening" title="Spraakbediening">🎙️</button>` : ''}
+        <button class="cook-tool" onclick="cycleTextSize()" aria-label="Tekstgrootte" title="Tekstgrootte">A<small>A</small></button>
       </div>
+      ${cookState.listening ? `<div class="hint" style="margin:-2px 0 8px">🎙️ Zeg <b>“volgende”</b>, <b>“vorige”</b>, <b>“herhaal”</b> of <b>“timer”</b></div>` : ''}
       <div class="cook-progress"><div style="width:${((i + 1) / steps.length) * 100}%"></div></div>
       <div class="cook-body">
         ${step.section ? `<div class="cook-section">${esc(step.section)}</div>` : ''}
-        <div class="cook-stepno">Stap ${i + 1} van ${steps.length}</div>
+        <div class="cook-stepno">Stap ${i + 1} van ${steps.length} · 👥 ${detailState.servings} personen</div>
         <div class="cook-text">${stepHTML(step.text, `${r.title} — stap ${i + 1}`)}</div>
         ${need.length ? `<div class="cook-need"><h3>Nodig voor deze stap</h3><ul>${need.map(l => `<li>${scaleLine(l, factor)}</li>`).join('')}</ul></div>` : ''}
       </div>
@@ -1332,6 +1399,7 @@ function renderCook(view, id, idx) {
           : `<button class="btn primary" onclick="${to(i + 1)}">Volgende →</button>`}
       </div>
     </div>`;
+  if (cookState.read && cookState.spokenKey !== id + ':' + i) speakStep();
 }
 
 async function finishCooking(id) {
@@ -1339,8 +1407,10 @@ async function finishCooking(id) {
   if (!(r.lastCooked && startOfDay(r.lastCooked) === startOfDay(Date.now()))) {
     await saveRecipe({ ...r, lastCooked: Date.now(), cookCount: (r.cookCount || 0) + 1 });
   }
+  stopListening();
   location.replace(`#/recept/${encodeURIComponent(id)}`);
-  toast('Smakelijk! 🍽️ Vergeet niet een beoordeling te geven.');
+  // After the hashchange redraw, which would close it otherwise.
+  setTimeout(() => openLogSheet(id, true), 60);
 }
 
 // Swipe left/right between steps.
@@ -1519,10 +1589,16 @@ const SYNONYMS = { ajuin: 'ui', ajuinen: 'ui', uien: 'ui', look: 'knoflook', hes
 
 const planFor = (recipeId) => liveDocs('plan').find(p => p.recipeId === recipeId);
 
-async function addPlan(recipeId, servings) {
+// day: 'YYYY-MM-DD' to put it on the week menu, or null for "just shopping".
+async function addPlan(recipeId, servings, day = null) {
   const r = recipes.get(recipeId);
-  if (!r || planFor(recipeId)) return;
-  const plan = { id: 'plan-' + newId(), kind: 'plan', recipeId, servings: servings || settings.defaultServings || r.servings || 4, createdAt: Date.now() };
+  if (!r) return;
+  const existing = planFor(recipeId);
+  if (existing) {
+    if (day !== undefined && existing.day !== day) await saveRecipe({ ...existing, day });
+    return;
+  }
+  const plan = { id: 'plan-' + newId(), kind: 'plan', recipeId, day, servings: servings || settings.defaultServings || r.servings || 4, createdAt: Date.now() };
   await saveRecipe(plan);
   let order = 0;
   for (const line of r.ingredients || []) {
@@ -1530,10 +1606,6 @@ async function addPlan(recipeId, servings) {
     await saveRecipe({ id: 'item-' + newId(), kind: 'item', planId: plan.id, recipeId, line, order: order++, checked: false, createdAt: Date.now() });
   }
   updateListBadge();
-  if (currentRoute() === 'recept') {
-    render();
-    toast(`"${r.title}" staat op de boodschappenlijst`, { label: 'Bekijk', run: () => { location.hash = '#/boodschappen'; } });
-  }
 }
 
 async function removePlan(planId, silent) {
@@ -1651,6 +1723,7 @@ function shoppingLines() {
     g.items.push(it);
     if (!it.checked) g.members.push(p);
     if (r) g.from.add(r.title);
+    else if (it.from) g.from.add(it.from);
   }
   return [...groups.values()].map(g => {
     const done = g.items.every(i => i.checked);
@@ -1678,16 +1751,95 @@ function updateListBadge() {
 
 function shopLineHTML(l) {
   const from = [...l.from];
-  return `<li class="${l.done ? 'done' : ''}">
-    <button class="box" onclick="toggleShopLine(${esc(JSON.stringify(l.key))})" aria-label="${l.done ? 'Niet gekocht' : 'Gekocht'}">${l.done ? '✓' : ''}</button>
-    <span class="what" onclick="toggleShopLine(${esc(JSON.stringify(l.key))})">${l.total ? `<span class="qty">${esc(l.total)}</span> ` : ''}${esc(l.name)}
-      ${from.length ? `<span class="from">${esc(from.join(' · '))}</span>` : ''}</span>
-    ${l.done ? '' : `<a class="cg-btn" href="${CG_SEARCH}${encodeURIComponent(l.search)}" target="_blank" rel="noopener" title="Zoeken bij Collect&Go">🔍 C&amp;G</a>`}
+  const key = esc(JSON.stringify(l.key));
+  const prod = productFor(l.key);
+  return `<li class="${l.done ? 'done' : ''}" data-key="${esc(l.key)}">
+    <button class="box" onclick="toggleShopLine(${key})" aria-label="${l.done ? 'Niet gekocht' : 'Gekocht'}">${l.done ? '✓' : ''}</button>
+    <span class="what" onclick="toggleShopLine(${key})">${l.total ? `<span class="qty">${esc(l.total)}</span> ` : ''}${esc(l.name)}
+      ${prod?.label ? `<span class="from">📌 ${esc(prod.label)}</span>` : from.length ? `<span class="from">${esc(from.join(' · '))}</span>` : ''}</span>
+    ${l.done ? '' : prod
+      ? `<a class="cg-btn pinned" href="${esc(prod.url)}" target="_blank" rel="noopener" title="Vast product openen bij Collect&Go">🛒 C&amp;G</a>`
+      : `<a class="cg-btn" href="${CG_SEARCH}${encodeURIComponent(l.search)}" target="_blank" rel="noopener" title="Zoeken bij Collect&Go">🔍 C&amp;G</a>`}
+    ${l.done ? '' : `<button class="pin-btn${prod ? ' on' : ''}" onclick="openProductSheet(${key}, ${esc(JSON.stringify(l.name))}, ${esc(JSON.stringify(l.search))})" aria-label="Vast product kiezen" title="Vast product">📌</button>`}
   </li>`;
 }
 
+// ── Vaste producten (Collect&Go) ────────────────────────────────────────────
+// A product link pasted once per ingredient, shared via sync, so the button
+// opens that exact product next time instead of search results.
+
+const productDocId = (key) => 'prod-' + key.replace(/[^a-z0-9]+/gi, '-').slice(0, 50);
+const productFor = (key) => { const d = recipes.get(productDocId(key)); return d && !d.deleted ? d : null; };
+
+function openProductSheet(key, name, search) {
+  const prod = productFor(key);
+  openSheet(`
+    <h2 style="margin-bottom:6px">📌 Vast product voor “${esc(name)}”</h2>
+    <p class="hint" style="margin:0 0 14px">Dan opent de knop meteen dat product in Collect&Go, met <i>Toevoegen aan winkelwagen</i>.</p>
+    <ol class="hint" style="margin:0 0 14px;padding-left:20px;line-height:1.6">
+      <li><a href="${CG_SEARCH}${encodeURIComponent(search)}" target="_blank" rel="noopener">Zoek “${esc(search)}” bij Collect&Go</a> en tik op het product dat je altijd neemt.</li>
+      <li>Kopieer de link uit de adresbalk (of <i>Delen → Kopiëren</i>).</li>
+      <li>Plak hem hieronder.</li>
+    </ol>
+    <label class="field"><span>Link naar het product</span>
+      <div style="display:flex;gap:8px"><input id="prod-url" type="url" inputmode="url" placeholder="https://www.collectandgo.be/…" value="${esc(prod?.url || '')}">
+      ${navigator.clipboard?.readText ? `<button class="btn" onclick="navigator.clipboard.readText().then(t=>{$('#prod-url').value=(t.match(/https?:\\/\\/\\S+/)||[t])[0].trim()}).catch(()=>{})">📋</button>` : ''}</div></label>
+    <label class="field"><span>Naam (optioneel)</span><input id="prod-label" placeholder="bv. BONI kipfilet 600 g" value="${esc(prod?.label || '')}"></label>
+    <p class="hint" id="prod-msg" style="margin:-6px 0 12px"></p>
+    <div class="row">
+      ${prod ? `<button class="btn danger" onclick="saveProduct(${esc(JSON.stringify(key))}, true)">Verwijderen</button>` : '<button class="btn ghost" onclick="closeSheet()">Annuleren</button>'}
+      <button class="btn primary" onclick="saveProduct(${esc(JSON.stringify(key))})">Bewaren</button>
+    </div>`);
+}
+
+async function saveProduct(key, remove) {
+  const id = productDocId(key);
+  if (remove) {
+    await saveRecipe({ id, kind: 'product', deleted: true });
+  } else {
+    const url = $('#prod-url').value.trim();
+    let ok = false;
+    try { ok = /(^|\.)(collectandgo|colruyt)\.be$/.test(new URL(url).hostname); } catch {}
+    if (!ok) { $('#prod-msg').innerHTML = '<span style="color:var(--danger)">Plak een link van collectandgo.be.</span>'; return; }
+    await saveRecipe({ id, kind: 'product', key, url, label: $('#prod-label').value.trim() });
+  }
+  closeSheet();
+  toast(remove ? 'Vast product verwijderd' : 'Vast product bewaard 📌');
+  render();
+}
+
+// Swipe a list line right to tick it off (left to untick).
+let swipe = null;
+document.addEventListener('touchstart', e => {
+  const li = e.target.closest?.('.shop li[data-key]');
+  if (!li || e.target.closest('a, button')) { swipe = null; return; }
+  swipe = { li, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, horizontal: null };
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!swipe) return;
+  const dx = e.touches[0].clientX - swipe.x, dy = e.touches[0].clientY - swipe.y;
+  if (swipe.horizontal === null && Math.abs(dx) + Math.abs(dy) > 10) swipe.horizontal = Math.abs(dx) > Math.abs(dy);
+  if (!swipe.horizontal) return;
+  e.preventDefault();
+  const done = swipe.li.classList.contains('done');
+  swipe.dx = done ? Math.min(0, Math.max(-140, dx)) : Math.max(0, Math.min(140, dx));
+  swipe.li.style.transform = `translateX(${swipe.dx}px)`;
+  swipe.li.classList.toggle('swiping', Math.abs(swipe.dx) > 70);
+}, { passive: false });
+document.addEventListener('touchend', () => {
+  if (!swipe) return;
+  const { li, dx } = swipe;
+  swipe = null;
+  li.style.transform = '';
+  li.classList.remove('swiping');
+  if (Math.abs(dx) > 70) {
+    navigator.vibrate?.(15);
+    toggleShopLine(li.dataset.key);
+  }
+});
+
 function renderShopping(view) {
-  const plans = liveDocs('plan').sort((a, b) => a.createdAt - b.createdAt);
+  const plans = liveDocs('plan').sort((a, b) => (a.day || '9').localeCompare(b.day || '9') || a.createdAt - b.createdAt);
   const lines = shoppingLines();
   const open = lines.filter(l => !l.done && !l.staple);
   const staples = lines.filter(l => !l.done && l.staple);
@@ -1701,6 +1853,7 @@ function renderShopping(view) {
       <a href="#/recept/${encodeURIComponent(r.id)}">${picHTML(r)}<div class="t">${esc(r.title)}</div></a>
       ${cooked ? '<span class="done">✓ gekookt</span>' : ''}
       <button class="x" onclick="removePlan('${p.id}')" aria-label="Van de lijst halen">✕</button>
+      <button class="day-chip" onclick="openPlanSheet('${esc(r.id)}')">📅 ${esc(p.day ? dayLabel(p.day) : 'Geen dag')}</button>
       <div class="srv"><button onclick="setPlanServings('${p.id}',-1)" aria-label="Minder personen">−</button>${p.servings} pers.<button onclick="setPlanServings('${p.id}',1)" aria-label="Meer personen">+</button></div>
     </div>`;
   };
@@ -1727,6 +1880,7 @@ function renderShopping(view) {
         Log de eerste keer in met je Xtra-account; je mandje is hetzelfde als in de Xtra-app.</div>
         <button class="x" onclick="settings.cgHintSeen=true;saveSettings();render()" aria-label="Sluiten">✕</button></div>` : ''}
       <div class="shop-head"><h3>Nog te kopen</h3><small>${open.length}</small></div>
+      ${open.length && 'ontouchstart' in window ? '<p class="hint" style="margin:0">Veeg een regel naar rechts om af te vinken · 📌 = vast product kiezen</p>' : ''}
       ${open.length ? AISLE_ORDER.filter(a => open.some(l => l.aisle === a)).map(a => `
         <div class="hint" style="margin:12px 0 0;font-weight:600">${AISLE_LABEL[a]}</div>
         <ul class="shop" style="margin-bottom:4px">${open.filter(l => l.aisle === a).map(shopLineHTML).join('')}</ul>`).join('')
@@ -1795,6 +1949,395 @@ async function addPickedPlans() {
   pickState.ids.clear(); pickState.q = '';
   location.replace('#/boodschappen');
   toast(`${n} ${n === 1 ? 'recept' : 'recepten'} toegevoegd`);
+}
+
+// ── Bottom sheet ────────────────────────────────────────────────────────────
+
+function openSheet(html) {
+  closeSheet();
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-wrap';
+  wrap.id = 'sheet';
+  wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  wrap.addEventListener('click', e => { if (e.target === wrap) closeSheet(); });
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add('open'));
+}
+function closeSheet() { $('#sheet')?.remove(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+// ── Weekmenu ────────────────────────────────────────────────────────────────
+
+function dayKey(offset = 0) {
+  const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const keyDate = (key) => new Date(key + 'T12:00:00');
+function dayLabel(key, long = false) {
+  const diff = Math.round((keyDate(key) - keyDate(dayKey())) / 86400000);
+  if (diff === 0) return 'Vandaag';
+  if (diff === 1) return 'Morgen';
+  if (diff === -1) return 'Gisteren';
+  const d = keyDate(key);
+  return long || diff < 0 || diff > 6
+    ? d.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'short' })
+    : d.toLocaleDateString('nl-BE', { weekday: 'long' });
+}
+const plansOn = (key) => liveDocs('plan').filter(p => p.day === key && recipes.get(p.recipeId) && !recipes.get(p.recipeId).deleted);
+
+function planBarHTML(r) {
+  const plan = planFor(r.id);
+  // Came here from an empty day on the week strip: one tap to plan it.
+  if (todayState.planDay && (!plan || plan.day !== todayState.planDay)) {
+    return `<button class="btn primary block" style="margin:-4px 0 16px" onclick="planForChosenDay('${esc(r.id)}')">📅 Plan voor ${esc(dayLabel(todayState.planDay).toLowerCase())}</button>`;
+  }
+  if (plan) {
+    return `<div class="cooked-bar" style="background:var(--surface-2)">📅 <span style="flex:1">${plan.day ? `Gepland voor <b>${esc(dayLabel(plan.day).toLowerCase())}</b>` : 'Op de boodschappenlijst'} · ${plan.servings} pers.</span>
+      <button class="btn ghost" style="min-height:36px;padding:6px 12px" onclick="openPlanSheet('${esc(r.id)}')">Wijzig</button></div>`;
+  }
+  return `<button class="btn ghost block" style="margin:-4px 0 16px" onclick="openPlanSheet('${esc(r.id)}')">📅 Inplannen / op de boodschappenlijst</button>`;
+}
+
+async function planForChosenDay(recipeId) {
+  const day = todayState.planDay;
+  todayState.planDay = null;
+  await addPlan(recipeId, detailState.servings, day);
+  location.hash = '#/vandaag';
+  toast(`${recipes.get(recipeId).title} staat op ${dayLabel(day).toLowerCase()} 📅`);
+}
+
+function openPlanSheet(recipeId) {
+  const r = recipes.get(recipeId);
+  const plan = planFor(recipeId);
+  const servings = plan?.servings || (detailState.id === recipeId ? detailState.servings : settings.defaultServings || r.servings || 4);
+  const days = Array.from({ length: 7 }, (_, i) => dayKey(i));
+  openSheet(`
+    <h2 style="margin-bottom:4px">📅 ${esc(r.title)}</h2>
+    <p class="hint" style="margin:0 0 14px">Voor ${servings} personen. De ingrediënten komen op de boodschappenlijst.</p>
+    <div class="day-grid">
+      ${days.map(k => {
+        const taken = plansOn(k).filter(p => p.recipeId !== recipeId).map(p => recipes.get(p.recipeId).title);
+        return `<button class="day-opt${plan?.day === k ? ' on' : ''}" onclick="choosePlanDay('${esc(recipeId)}', '${k}', ${servings})">
+          <b>${esc(dayLabel(k))}</b><span>${esc(taken[0] || keyDate(k).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }))}</span></button>`;
+      }).join('')}
+      <button class="day-opt${plan && !plan.day ? ' on' : ''}" onclick="choosePlanDay('${esc(recipeId)}', null, ${servings})"><b>Geen dag</b><span>alleen boodschappen</span></button>
+    </div>
+    ${plan ? `<button class="btn danger block" style="margin-top:14px" onclick="closeSheet();removePlan('${plan.id}')">Van het menu en de lijst halen</button>` : ''}`);
+}
+
+async function choosePlanDay(recipeId, day, servings) {
+  closeSheet();
+  const had = planFor(recipeId);
+  await addPlan(recipeId, servings, day);
+  render();
+  toast(day ? `Gepland voor ${dayLabel(day).toLowerCase()} 📅` : had ? 'Dag weggehaald' : 'Op de boodschappenlijst 🛒',
+    { label: 'Lijst', run: () => { location.hash = '#/boodschappen'; } });
+}
+
+function tonightHTML() {
+  const plans = plansOn(dayKey());
+  if (!plans.length) return '';
+  return plans.map(p => {
+    const r = recipes.get(p.recipeId);
+    const cooked = r.lastCooked && startOfDay(r.lastCooked) === startOfDay(Date.now());
+    return `<div class="tonight">
+      <div class="step-label" style="margin-bottom:8px">${cooked ? 'Vandaag gekookt' : 'Vanavond op het menu'}</div>
+      ${photoCardHTML(r)}
+      <div class="row" style="margin-top:10px">
+        ${cookSteps(r).length && !cooked ? `<a class="btn primary" href="#/koken/${encodeURIComponent(r.id)}/0">👩‍🍳 Kookmodus</a>` : ''}
+        ${cooked ? '' : `<button class="btn" onclick="markCooked('${esc(r.id)}')">✅ Gekookt</button>`}
+      </div></div>`;
+  }).join('');
+}
+
+function weekStripHTML() {
+  if (!liveDocs('plan').some(p => p.day)) {
+    return `<button class="btn ghost block" style="margin-bottom:20px" onclick="pickDay('${dayKey()}')">📅 Plan de week</button>`;
+  }
+  return `<h3 style="margin-bottom:10px">Deze week</h3><div class="week-strip">${Array.from({ length: 7 }, (_, i) => dayKey(i)).map(k => {
+    const p = plansOn(k)[0];
+    const r = p && recipes.get(p.recipeId);
+    const name = esc(dayLabel(k));
+    return r
+      ? `<a class="week-day" href="#/recept/${encodeURIComponent(r.id)}"><b>${name}</b>${picHTML(r)}<span>${esc(r.title)}</span></a>`
+      : `<button class="week-day empty" onclick="pickDay('${k}')"><b>${name}</b><div class="pic">＋</div><span>Kies iets</span></button>`;
+  }).join('')}</div>`;
+}
+
+function pickDay(key) {
+  todayState.planDay = key;
+  if (location.hash === '#/vandaag' || location.hash === '' || location.hash === '#/') render(); else location.hash = '#/vandaag';
+  window.scrollTo(0, 0);
+}
+
+function planDayBanner() {
+  if (!todayState.planDay) return '';
+  return `<div class="banner"><span>📅</span><div><b>Je kiest voor ${esc(dayLabel(todayState.planDay, true).toLowerCase())}</b>
+    Open een recept en tik op <i>Plan voor ${esc(dayLabel(todayState.planDay).toLowerCase())}</i>.</div>
+    <button class="x" onclick="todayState.planDay=null;render()" aria-label="Stoppen">✕</button></div>`;
+}
+
+// ── Kooklogboek ─────────────────────────────────────────────────────────────
+
+function cookLogHTML(r) {
+  const log = r.log || [];
+  return `<h2 class="section-title">📝 Kooklogboek</h2>
+    ${log.length ? `<ul class="log">${log.map((e, i) => `<li><div><b>${esc(new Date(e.at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' }))}</b>${e.note ? `<p>${esc(e.note)}</p>` : ''}</div>
+        <button class="log-x" onclick="deleteLogEntry('${esc(r.id)}', ${i})" aria-label="Notitie verwijderen">✕</button></li>`).join('')}</ul>`
+      : '<p class="hint" style="margin:0 0 10px">Hoe viel het mee? Noteer na het koken wat je volgende keer anders doet.</p>'}
+    <button class="btn ghost block" style="margin-bottom:20px" onclick="openLogSheet('${esc(r.id)}')">+ Notitie</button>`;
+}
+
+function openLogSheet(id, justCooked) {
+  const r = recipes.get(id);
+  openSheet(`
+    <h2 style="margin-bottom:4px">${justCooked ? 'Smakelijk! 🍽️' : '📝 Notitie'}</h2>
+    <p class="hint" style="margin:0 0 14px">${justCooked ? 'Hoe was het? Een korte notitie helpt de volgende keer.' : esc(r.title)}</p>
+    <div class="stars" style="margin-bottom:12px" id="log-stars">${[1, 2, 3, 4, 5].map(n =>
+      `<button class="${n <= (r.rating || 0) ? 'on' : ''}" onclick="logRate(${n})" aria-label="${n} sterren">★</button>`).join('')}</div>
+    <textarea id="log-note" rows="3" style="min-height:90px" placeholder="bv. te zout, volgende keer minder bouillon · kinderen vonden het top"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost" onclick="closeSheet()">${justCooked ? 'Overslaan' : 'Annuleren'}</button>
+      <button class="btn primary" onclick="saveLogEntry('${esc(id)}')">Bewaren</button>
+    </div>`);
+  logState.rating = r.rating || 0;
+}
+
+const logState = { rating: 0 };
+function logRate(n) {
+  logState.rating = logState.rating === n ? 0 : n;
+  document.querySelectorAll('#log-stars button').forEach((b, i) => b.classList.toggle('on', i < logState.rating));
+}
+
+async function saveLogEntry(id) {
+  const note = $('#log-note').value.trim();
+  const r = { ...recipes.get(id) };
+  if (note) r.log = [{ at: Date.now(), note }, ...(r.log || [])].slice(0, 50);
+  r.rating = logState.rating;
+  await saveRecipe(r);
+  closeSheet();
+  render();
+  if (note) toast('Notitie bewaard');
+}
+
+async function deleteLogEntry(id, i) {
+  const r = { ...recipes.get(id) };
+  const removed = r.log[i];
+  r.log = r.log.filter((_, j) => j !== i);
+  await saveRecipe(r);
+  render();
+  toast('Notitie verwijderd', { label: 'Ongedaan maken', run: async () => {
+    const cur = { ...recipes.get(id) };
+    cur.log = [...(cur.log || []), removed].sort((a, b) => b.at - a.at);
+    await saveRecipe(cur); render();
+  } });
+}
+
+// ── Handsfree cooking ───────────────────────────────────────────────────────
+
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const cookState = { id: null, i: 0, steps: [], read: false, listening: false, spokenKey: '' };
+let recognizer = null;
+
+function cookGo(n) {
+  if (n < 0 || n >= cookState.steps.length) return;
+  location.replace(`#/koken/${encodeURIComponent(cookState.id)}/${n}`);
+}
+
+function speak(text, after) {
+  if (!('speechSynthesis' in window)) { toast('Voorlezen wordt niet ondersteund op dit toestel'); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const voices = speechSynthesis.getVoices();
+  u.voice = voices.find(v => v.lang === 'nl-BE') || voices.find(v => v.lang?.startsWith('nl')) || null;
+  u.lang = u.voice?.lang || 'nl-BE';
+  u.rate = 0.95;
+  // Don't let the microphone hear the app talking.
+  u.onstart = () => { if (recognizer) try { recognizer.abort(); } catch {} };
+  u.onend = () => { if (cookState.listening) startRecognizer(); after?.(); };
+  speechSynthesis.speak(u);
+}
+
+function speakStep() {
+  const step = cookState.steps[cookState.i];
+  if (!step) return;
+  cookState.spokenKey = cookState.id + ':' + cookState.i;
+  speak(`Stap ${cookState.i + 1}. ${step.text}`);
+}
+
+function toggleReadAloud() {
+  cookState.read = !cookState.read;
+  if (cookState.read) speakStep(); else speechSynthesis?.cancel();
+  render();
+}
+
+function toggleListening() {
+  if (cookState.listening) { stopListening(); render(); return; }
+  cookState.listening = true;
+  startRecognizer();
+  render();
+}
+
+function startRecognizer() {
+  if (!SpeechRec || !cookState.listening || currentRoute() !== 'koken') return;
+  try { recognizer?.abort(); } catch {}
+  recognizer = new SpeechRec();
+  recognizer.lang = 'nl-BE';
+  recognizer.continuous = true;
+  recognizer.interimResults = false;
+  recognizer.onresult = (e) => {
+    const said = e.results[e.results.length - 1][0].transcript.toLowerCase();
+    if (/volgende|verder|next/.test(said)) cookGo(cookState.i + 1);
+    else if (/vorige|terug/.test(said)) cookGo(cookState.i - 1);
+    else if (/herhaal|opnieuw|lees|nog eens/.test(said)) speakStep();
+    else if (/timer|wekker|start/.test(said)) document.querySelector('.cook-text .timer-chip')?.click();
+    else if (/klaar|stop/.test(said) && cookState.i === cookState.steps.length - 1) finishCooking(cookState.id);
+  };
+  recognizer.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      cookState.listening = false;
+      toast('Geen toegang tot de microfoon');
+      render();
+    }
+  };
+  // Browsers stop listening after a while; keep it going while it's on.
+  recognizer.onend = () => { if (cookState.listening && !speechSynthesis?.speaking) setTimeout(startRecognizer, 300); };
+  try { recognizer.start(); } catch {}
+}
+
+function stopListening() {
+  cookState.listening = false;
+  try { recognizer?.abort(); } catch {}
+  recognizer = null;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+}
+
+// ── Text size ───────────────────────────────────────────────────────────────
+
+const TEXT_SIZES = [[1, 'Normaal'], [1.15, 'Groot'], [1.3, 'Extra groot']];
+function applyTextSize() { document.documentElement.style.setProperty('--scale', settings.textScale || 1); }
+function cycleTextSize() {
+  const i = TEXT_SIZES.findIndex(([s]) => s === (settings.textScale || 1));
+  const [scale, label] = TEXT_SIZES[(i + 1) % TEXT_SIZES.length];
+  settings.textScale = scale; saveSettings(); applyTextSize();
+  toast(`Tekstgrootte: ${label}`);
+}
+
+// ── Offline indicator ───────────────────────────────────────────────────────
+
+function updateOnline() {
+  let pill = $('#offline');
+  if (navigator.onLine) { pill?.remove(); return; }
+  if (pill) return;
+  pill = document.createElement('div');
+  pill.id = 'offline';
+  pill.className = 'offline-pill';
+  pill.textContent = '📡 Offline';
+  pill.title = 'Geen verbinding. Wijzigingen worden bewaard en gedeeld zodra je weer online bent.';
+  pill.onclick = () => toast(pill.title);
+  document.body.appendChild(pill);
+}
+window.addEventListener('online', updateOnline);
+window.addEventListener('offline', updateOnline);
+
+// ── AI help ─────────────────────────────────────────────────────────────────
+
+const recipePayload = (r) => ({ title: r.title, servings: r.servings, ingredients: (r.ingredients || []).filter(l => !isHeading(l)), steps: (r.steps || []).filter(s => !isHeading(s)) });
+
+async function aiPost(path, body) {
+  const res = await fetch(`${API}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
+  return data;
+}
+
+// Lets the AI pick categories and fill a missing time for a new draft. The
+// keyword guess stays as a fallback if it's offline or out of budget.
+async function classifyDraft(d) {
+  if (!navigator.onLine || !(d.title || d.ingredients?.length)) return;
+  const note = () => $('#ai-note');
+  if (note()) note().innerHTML = '<span class="spinner" style="display:inline-block;width:12px;height:12px;vertical-align:-1px"></span> AI kiest de categorieën…';
+  try {
+    const out = await aiPost('/classify', { recipe: recipePayload(d) });
+    if (draft !== d) return; // the form was closed or replaced meanwhile
+    if (out.bases?.length) d.bases = out.bases;
+    if (out.proteins?.length) d.proteins = out.proteins;
+    if (!d.time && out.time) d.time = out.time;
+    d.aiTagged = true;
+    refreshDraftTags();
+    if (note()) note().textContent = '✨ Categorieën gekozen door AI — pas ze gerust aan.';
+  } catch (e) {
+    if (note()) note().textContent = '';
+  }
+}
+
+function refreshDraftTags() {
+  const chips = (list, key) => list.map(t =>
+    `<button type="button" class="chip${draft[key].includes(t.id) ? ' on' : ''}" onclick="toggleDraftTag('${key}','${t.id}',this)">${t.emoji} ${esc(t.label)}</button>`).join('');
+  if ($('#f-bases')) $('#f-bases').innerHTML = chips(BASES, 'bases');
+  if ($('#f-proteins')) $('#f-proteins').innerHTML = chips(PROTEINS, 'proteins');
+  if ($('#f-time') && draft.time && !$('#f-time').value) $('#f-time').value = draft.time;
+}
+
+async function askAssist(id, mode, btn) {
+  const r = recipes.get(id);
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Even denken…';
+  try {
+    const out = await aiPost('/assist', { mode, recipe: { ...recipePayload(r), servings: detailState.servings } });
+    if (mode === 'vega') showVegaSheet(r, out); else showSideSheet(r, out.suggestions);
+  } catch (e) {
+    toast(!navigator.onLine ? 'Geen verbinding' : e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+let assistResult = null;
+function showVegaSheet(r, v) {
+  assistResult = { r, v };
+  openSheet(`
+    <h2 style="margin-bottom:4px">🥦 ${esc(v.title || r.title + ' (vegetarisch)')}</h2>
+    <p class="hint" style="margin:0 0 12px">${esc(v.intro || '')} Voor ${detailState.servings} personen · voorstel van AI, kijk het na.</p>
+    <h3>Ingrediënten</h3><ul class="sheet-list">${v.ingredients.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
+    <h3 style="margin-top:12px">Bereiding</h3><ol class="sheet-list">${v.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" onclick="closeSheet()">Sluiten</button>
+      <button class="btn primary" onclick="saveVegaVersion()">Opslaan als recept</button>
+    </div>`);
+}
+
+function saveVegaVersion() {
+  const { r, v } = assistResult;
+  closeSheet();
+  startDraft({
+    title: v.title || `${r.title} (vegetarisch)`, image: r.image, servings: detailState.servings, time: r.time,
+    ingredients: v.ingredients, steps: v.steps, bases: [...(r.bases || [])], proteins: ['vega'],
+    notes: `Vegetarische versie van "${r.title}", voorgesteld door AI.`, imported: true,
+  });
+}
+
+function showSideSheet(r, list) {
+  assistResult = { r, list };
+  openSheet(`
+    <h2 style="margin-bottom:4px">🍽️ Past bij ${esc(r.title)}</h2>
+    <p class="hint" style="margin:0 0 12px">Voorstellen van AI voor ${detailState.servings} personen.</p>
+    ${list.map((s, i) => `<div class="side-sugg">
+      <b>${esc(s.name)}</b><p>${esc(s.why)}</p>
+      ${s.ingredients.length ? `<p class="hint" style="margin:0 0 8px">${esc(s.ingredients.join(' · '))}</p>
+        <button class="btn ghost" style="min-height:38px;padding:6px 14px" onclick="addSideToList(${i}, this)">🛒 Op de lijst</button>` : ''}
+    </div>`).join('')}
+    <button class="btn block" style="margin-top:12px" onclick="closeSheet()">Sluiten</button>`);
+}
+
+async function addSideToList(i, btn) {
+  const s = assistResult.list[i];
+  for (const line of s.ingredients) {
+    await saveRecipe({ id: 'item-' + newId(), kind: 'item', line, manual: true, from: s.name, checked: false, createdAt: Date.now() });
+  }
+  btn.disabled = true; btn.textContent = '✓ Op de lijst';
+  updateListBadge();
 }
 
 function recipeAsText(r, servings) {
@@ -2015,6 +2558,7 @@ function startDraft(d) {
   if (!draft.bases) draft.bases = [];
   if (!draft.proteins) draft.proteins = [];
   if (location.hash === '#/bewerk/nieuw') render(); else location.hash = '#/bewerk/nieuw';
+  if (d.imported && !d.bases) setTimeout(() => classifyDraft(draft), 0);
 }
 
 // ── Edit form ───────────────────────────────────────────────────────────────
@@ -2046,13 +2590,17 @@ function renderEdit(view, id) {
     <label class="field"><span>Naam</span><input id="f-title" value="${esc(d.title)}" placeholder="Bv. Spaghetti bolognese" oninput="draft.title=this.value"></label>
     <div style="display:flex;gap:12px">
       <label class="field" style="flex:1"><span>Personen</span><input type="number" min="1" max="40" inputmode="numeric" value="${d.servings || ''}" placeholder="4" oninput="draft.servings=+this.value||null"></label>
-      <label class="field" style="flex:1"><span>Tijd (min)</span><input type="number" min="1" inputmode="numeric" value="${d.time || ''}" placeholder="30" oninput="draft.time=+this.value||null"></label>
+      <label class="field" style="flex:1"><span>Tijd (min)</span><input id="f-time" type="number" min="1" inputmode="numeric" value="${d.time || ''}" placeholder="30" oninput="draft.time=+this.value||null"></label>
     </div>
 
     <div class="field" style="margin-bottom:16px"><span style="display:block;font-size:14px;font-weight:600;margin-bottom:8px">Waar eet je het mee?</span>
-      <div class="chips">${tagChips(BASES, 'bases')}</div></div>
+      <div class="chips" id="f-bases">${tagChips(BASES, 'bases')}</div></div>
     <div class="field" style="margin-bottom:16px"><span style="display:block;font-size:14px;font-weight:600;margin-bottom:8px">Vlees, vis of vega?</span>
-      <div class="chips">${tagChips(PROTEINS, 'proteins')}</div></div>
+      <div class="chips" id="f-proteins">${tagChips(PROTEINS, 'proteins')}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+        <button type="button" class="btn ghost" style="min-height:36px;padding:6px 12px;font-size:14px" onclick="classifyDraft(draft)">✨ Laat AI kiezen</button>
+        <span class="hint" id="ai-note" style="margin:0"></span>
+      </div></div>
 
     <label class="field"><span>Ingrediënten</span>
       <textarea rows="8" placeholder="Eén ingrediënt per regel, bv.&#10;400 g spaghetti&#10;1 ui&#10;2 el olijfolie" oninput="draft.ingredients=lines(this.value)">${esc(d.ingredients.join('\n'))}</textarea>
@@ -2144,6 +2692,14 @@ function renderSettings(view) {
           <input id="join-code" placeholder="Code, bv. ABCD-EFGH-JKLM" autocapitalize="characters" autocomplete="off">
           <button class="btn" onclick="joinFromInput()">Koppelen</button>
         </div>`}
+    </div>
+
+    <div class="card">
+      <h2>🔠 Tekstgrootte</h2>
+      <p>Voor recepten, de kookmodus en de boodschappenlijst. In de kookmodus wissel je ook met de knop <b>AA</b>.</p>
+      <select onchange="settings.textScale=+this.value;saveSettings();applyTextSize()">
+        ${TEXT_SIZES.map(([v, l]) => `<option value="${v}"${(settings.textScale || 1) === v ? ' selected' : ''}>${l}</option>`).join('')}
+      </select>
     </div>
 
     <div class="card">
@@ -2283,6 +2839,8 @@ function takeSharedUrl() {
   render();
   if (sharedUrl) importFromUrl(sharedUrl);
 
+  applyTextSize();
+  updateOnline();
   renderTimers();
   setInterval(tickTimers, 1000);
 

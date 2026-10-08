@@ -7,7 +7,9 @@
 //   GET  /image?url=...    Fetch one image (image/* only, max 8 MB) so the app
 //                          can keep its own copy of an imported recipe photo.
 //   POST /scan             {images: [dataURL]} -> recipe read from photos.
-//                          Rate-limited per IP and per day (see Limiter).
+//   POST /classify         {recipe} -> {bases, proteins, time} chosen by AI.
+//   POST /assist           {mode: "vega"|"side", recipe} -> variation / side dishes.
+//                          AI routes share a daily budget per IP and in total.
 //   POST /b/{book}/sync    {since, changes: [recipe]} -> {seq, changes: [recipe]}
 //   GET  /b/{book}/snapshots          -> {snapshots: [{id, created, count}]}
 //   GET  /b/{book}/snapshots/{id}     -> {created, recipes: [recipe]}
@@ -28,9 +30,12 @@ const MAX_CHANGES = 500;
 const MAX_IMAGE_BYTES = 8_000_000;
 const SNAPSHOT_EVERY_MS = 20 * 3600_000;
 const SNAPSHOTS_KEPT = 14;
-// The free Workers AI allowance is 10,000 neurons/day, ~150 per scan.
-const SCANS_PER_IP_PER_DAY = 25;
-const SCANS_PER_DAY = 55;
+// The free Workers AI allowance is 10,000 neurons/day. Each AI call is
+// charged an estimate against a daily budget that stays below that, so one
+// connection can't use it all up and the total never runs into the hard cap.
+const AI_COST = { scan: 160, classify: 30, assist: 90 };
+const AI_BUDGET_PER_IP = 4500;
+const AI_BUDGET_PER_DAY = 9000;
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -49,8 +54,18 @@ export default {
         return await proxyImage(url.searchParams.get("url"));
       }
       if (url.pathname === "/scan" && request.method === "POST") {
-        await checkScanLimit(request, env);
+        await chargeAI(request, env, "scan");
         return json(await scanRecipe(request, env));
+      }
+      if (url.pathname === "/classify" && request.method === "POST") {
+        const body = await readRecipeBody(request);
+        await chargeAI(request, env, "classify");
+        return json(await classifyRecipe(body, env));
+      }
+      if (url.pathname === "/assist" && request.method === "POST") {
+        const body = await readRecipeBody(request);
+        await chargeAI(request, env, "assist");
+        return json(await assistRecipe(body, env));
       }
       const m = url.pathname.match(/^\/b\/([^/]+)\/(sync|snapshots)(?:\/(\d+))?$/);
       if (m) {
@@ -146,7 +161,7 @@ export class Book extends DurableObject {
   }
 }
 
-// Counts scans per IP and in total, per UTC day.
+// Sums estimated AI cost per IP and in total, per UTC day.
 export class Limiter extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -154,24 +169,112 @@ export class Limiter extends DurableObject {
     this.sql.exec("CREATE TABLE IF NOT EXISTS hits (key TEXT NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (key, day))");
   }
 
-  async take(key) {
+  async take(key, cost = 1, perKey = AI_BUDGET_PER_IP, total = AI_BUDGET_PER_DAY) {
     const day = new Date().toISOString().slice(0, 10);
     this.sql.exec("DELETE FROM hits WHERE day <> ?", day);
     const get = (k) => this.sql.exec("SELECT n FROM hits WHERE key = ? AND day = ?", k, day).toArray()[0]?.n || 0;
-    if (get(key) >= SCANS_PER_IP_PER_DAY) return "ip";
-    if (get("*") >= SCANS_PER_DAY) return "all";
+    if (get(key) + cost > perKey) return "ip";
+    if (get("*") + cost > total) return "all";
     for (const k of [key, "*"]) {
-      this.sql.exec("INSERT INTO hits (key, day, n) VALUES (?, ?, 1) ON CONFLICT(key, day) DO UPDATE SET n = n + 1", k, day);
+      this.sql.exec("INSERT INTO hits (key, day, n) VALUES (?, ?, ?) ON CONFLICT(key, day) DO UPDATE SET n = n + excluded.n", k, day, cost);
     }
     return "";
   }
 }
 
-async function checkScanLimit(request, env) {
+async function chargeAI(request, env, kind) {
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  const blocked = await env.LIMITER.get(env.LIMITER.idFromName("scan")).take(ip);
-  if (blocked === "ip") throw httpError(429, `Vandaag zijn er al ${SCANS_PER_IP_PER_DAY} foto's gescand vanaf deze verbinding. Morgen kan het weer — of plak de tekst.`);
-  if (blocked) throw httpError(429, "Het gratis scan-tegoed voor vandaag is op. Probeer het morgen opnieuw, of plak de tekst.");
+  const blocked = await env.LIMITER.get(env.LIMITER.idFromName("ai")).take(ip, AI_COST[kind]);
+  if (!blocked) return;
+  const what = kind === "scan" ? "Scannen" : "De AI-hulp";
+  throw httpError(429, `${what} kan vandaag niet meer: het gratis dagtegoed is op. Morgen kan het weer.`);
+}
+
+// ── AI help with categories and variations ──────────────────────────────────
+
+const AI_TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const BASE_IDS = ["aardappelen", "rijst", "pasta", "brood", "anders"];
+const PROTEIN_IDS = ["kip", "gehakt", "rund", "varken", "vis", "zeevruchten", "vega", "anders"];
+
+async function readRecipeBody(request) {
+  if (+request.headers.get("Content-Length") > 200_000) throw httpError(413, "Recept te groot");
+  let body;
+  try { body = await request.json(); } catch { throw httpError(400, "Ongeldige aanvraag"); }
+  const lines = (v) => toArray(v).filter(s => typeof s === "string").map(s => s.slice(0, 300)).slice(0, 80);
+  const r = body.recipe || {};
+  const recipe = { title: String(r.title || "").slice(0, 200), servings: r.servings || null, ingredients: lines(r.ingredients), steps: lines(r.steps) };
+  if (!recipe.title && !recipe.ingredients.length) throw httpError(400, "Geen recept ontvangen");
+  return { mode: body.mode, recipe };
+}
+
+async function askModel(env, prompt, maxTokens) {
+  let out;
+  try {
+    out = await env.AI.run(AI_TEXT_MODEL, { messages: [{ role: "user", content: prompt }], max_tokens: maxTokens, temperature: 0.2 });
+  } catch (e) {
+    const msg = String(e && e.message || e);
+    if (/neuron|quota|429|exceeded/i.test(msg)) throw httpError(429, "Het gratis AI-tegoed voor vandaag is op. Morgen kan het weer.");
+    throw httpError(502, "De AI-hulp lukte niet: " + msg.slice(0, 200));
+  }
+  const text = typeof out?.response === "string" ? out.response
+    : out?.response ? JSON.stringify(out.response) : out?.choices?.[0]?.message?.content || "";
+  const parsed = parseModelJson(text);
+  if (!parsed) throw httpError(502, "De AI gaf geen bruikbaar antwoord. Probeer het nog eens.");
+  return parsed;
+}
+
+const recipeText = (r) => `Titel: ${r.title}\n${r.servings ? `Personen: ${r.servings}\n` : ""}Ingrediënten:\n${r.ingredients.map(i => "- " + i).join("\n")}\n${r.steps.length ? `Bereiding:\n${r.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}` : ""}`;
+
+async function classifyRecipe({ recipe }, env) {
+  const prompt = `Categoriseer dit recept voor een app die vraagt "waar heb je zin in" (de basis van de maaltijd) en "welk vlees of vis".
+
+${recipeText(recipe)}
+
+Kies:
+- "bases": de koolhydraatbasis die je op je bord krijgt NAAST of ONDER het gerecht, één of meer uit ${JSON.stringify(BASE_IDS)}. Rijst die erbij geserveerd wordt telt. "anders" = soep, salade, ovenschotel zonder duidelijke basis, enz. Ingrediënten die IN de saus of het stoofsel verwerkt worden zijn NOOIT een basis: brood met mosterd in stoofvlees bindt de saus en is dus geen "brood"; paneermeel, bloem en currypasta ook niet. Staat er geen basis in het recept, kies dan wat er in België traditioneel bij gegeten wordt (bv. stoofvlees → aardappelen).
+- "proteins": de hoofdeiwitbron, één of meer uit ${JSON.stringify(PROTEIN_IDS)}. Bouillon of vissaus telt niet. Geen vlees of vis = "vega". Gehakt (ook rundergehakt) = "gehakt"; steak, stoofvlees, rundvlees = "rund"; spek, ham, worst = "varken".
+- "time": geschatte totale bereidingstijd in minuten (getal), inclusief oventijd en stooftijd.
+
+Antwoord ALLEEN met JSON: {"bases": [], "proteins": [], "time": 0}`;
+  const out = await askModel(env, prompt, 200);
+  const pick = (v, allowed) => [...new Set(toArray(v).map(x => String(x).toLowerCase().trim()).filter(x => allowed.includes(x)))];
+  const time = parseInt(out.time, 10);
+  return { bases: pick(out.bases, BASE_IDS), proteins: pick(out.proteins, PROTEIN_IDS), time: time > 0 && time < 1440 ? time : null };
+}
+
+async function assistRecipe({ mode, recipe }, env) {
+  if (mode === "vega") {
+    const prompt = `Maak een vegetarische versie van dit recept. Vervang vlees en vis door een passend vegetarisch alternatief (bv. kikkererwten, tofu, halloumi, paddenstoelen, linzen, vegetarisch gehakt) en pas hoeveelheden en bereiding daarop aan. Houd de rest zoveel mogelijk gelijk. Schrijf in het Nederlands (Belgisch is prima).
+
+${recipeText(recipe)}
+
+Geef het een nieuwe titel die het vegetarische alternatief noemt, zonder het vlees of de vis (dus "Currysaus met kikkererwten", niet "Vegetarische kip in currysaus").
+
+Antwoord ALLEEN met JSON:
+{"title": "", "intro": "één zin over wat je vervangen hebt", "ingredients": ["hoeveelheid + ingrediënt", ...], "steps": ["stap", ...]}`;
+    const out = await askModel(env, prompt, 1500);
+    const lines = (v) => toArray(v).map(x => clean(typeof x === "string" ? x : x?.text || "")).filter(Boolean);
+    const result = { title: clean(out.title), intro: clean(out.intro), ingredients: lines(out.ingredients), steps: lines(out.steps).map(s => s.replace(/^\d+[.)]\s*/, "")) };
+    if (!result.ingredients.length || !result.steps.length) throw httpError(502, "De AI gaf geen volledig recept terug. Probeer het nog eens.");
+    return result;
+  }
+  if (mode === "side") {
+    const prompt = `Geef 3 bijgerechten of aanvullingen die goed passen bij dit gerecht, zodat het een complete maaltijd wordt. Houd het eenvoudig en haalbaar op een weekdag. Ingrediënten die al in het recept zitten hoef je niet opnieuw voor te stellen. Schrijf in het Nederlands.
+
+${recipeText(recipe)}
+
+Antwoord ALLEEN met JSON:
+{"suggestions": [{"name": "korte naam", "why": "één zin waarom het past", "ingredients": ["hoeveelheid voor ${recipe.servings || 4} personen + ingrediënt", ...]}]}`;
+    const out = await askModel(env, prompt, 700);
+    const suggestions = toArray(out.suggestions).slice(0, 3).map(s => ({
+      name: clean(s?.name), why: clean(s?.why),
+      // The model sometimes returns one comma-separated string instead of a list.
+      ingredients: toArray(s?.ingredients).flatMap(x => String(x).split(/\s*;\s*|,\s+/)) // "1,5 dl" stays whole.map(clean).filter(Boolean).slice(0, 8),
+    })).filter(s => s.name);
+    if (!suggestions.length) throw httpError(502, "De AI gaf geen suggesties terug. Probeer het nog eens.");
+    return { suggestions };
+  }
+  throw httpError(400, "Onbekende vraag");
 }
 
 // ── Image copy ──────────────────────────────────────────────────────────────

@@ -2,13 +2,16 @@
 
 Jullie eigen receptenboek als app voor Android en iPhone.
 
+- **Weekmenu** — plan recepten per dag; het startscherm toont wat er vanavond op het menu staat, met een knop naar de kookmodus.
 - **Wat eten we?** — kies aardappelen/rijst/pasta/…, dan kip/gehakt/steak/vis/…, dan hoeveel tijd je hebt, en krijg jullie eigen recepten als fotokaarten (wat deze week al op tafel kwam wordt verborgen, of laat de app kiezen). Bovenaan suggesties: favorieten en wat je lang niet meer maakte.
 - **Wat heb ik in huis?** — vul ingrediënten in en zie welke recepten je ermee kunt maken.
-- **Kookmodus** — stap voor stap met grote tekst, de ingrediënten per stap, en timers door op een tijd in de tekst te tikken.
+- **Kookmodus** — stap voor stap met grote tekst, de ingrediënten per stap, timers door op een tijd in de tekst te tikken, voorlezen en spraakbediening ("volgende").
+- **Kooklogboek** — noteer na het koken hoe het was.
+- **AI-hulp (gratis)** — kiest de categorieën bij het importeren, maakt een vegetarische versie of stelt bijgerechten voor.
 - **Favorieten en sterren**, en verwijderen met *Ongedaan maken*.
 - **Recepten importeren** via een link (Leuke Recepten, Dagelijkse Kost, 24Kitchen en de meeste sites met receptgegevens), via een **foto** van een kookboek of handgeschreven briefje (gratis, via Cloudflare Workers AI), via geplakte tekst, of zelf intypen met eigen foto.
 - **Omrekenen** naar het aantal personen.
-- **Boodschappenlijst** — zet recepten op het menu; de ingrediënten worden omgerekend, opgeteld en per winkelafdeling gesorteerd. Elke regel heeft een knop om het product te zoeken in de Collect&Go-webshop. Gedeeld tussen jullie telefoons.
+- **Boodschappenlijst** — zet recepten op het menu; de ingrediënten worden omgerekend, opgeteld en per winkelafdeling gesorteerd. Elke regel heeft een knop om het product te zoeken in de Collect&Go-webshop, of meteen je vaste product te openen (📌). Veeg om af te vinken. Gedeeld tussen jullie telefoons.
 - **Samen één kookboek** — koppel meerdere telefoons met een code; wijzigingen worden gesynchroniseerd en het kookboek wordt elke dag automatisch bewaard (14 dagen terug te zetten). Verwijderde recepten blijven 30 dagen terug te halen.
 - Werkt offline zodra de app geladen is; scherm blijft aan tijdens het koken.
 
