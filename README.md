@@ -8,6 +8,7 @@ Jullie eigen receptenboek als app voor Android en iPhone.
 - **Favorieten en sterren**, en verwijderen met *Ongedaan maken*.
 - **Recepten importeren** via een link (Leuke Recepten, Dagelijkse Kost, 24Kitchen en de meeste sites met receptgegevens), via een **foto** van een kookboek of handgeschreven briefje (gratis, via Cloudflare Workers AI), via geplakte tekst, of zelf intypen met eigen foto.
 - **Omrekenen** naar het aantal personen.
+- **Boodschappenlijst** — zet recepten op het menu; de ingrediënten worden omgerekend, opgeteld en per winkelafdeling gesorteerd. Elke regel heeft een knop om het product te zoeken in de Collect&Go-webshop. Gedeeld tussen jullie telefoons.
 - **Samen één kookboek** — koppel meerdere telefoons met een code; wijzigingen worden gesynchroniseerd en het kookboek wordt elke dag automatisch bewaard (14 dagen terug te zetten). Verwijderde recepten blijven 30 dagen terug te halen.
 - Werkt offline zodra de app geladen is; scherm blijft aan tijdens het koken.
 

@@ -224,9 +224,51 @@ nav.tabs {
 }
 nav.tabs a {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 500;
+  color: var(--muted); text-decoration: none; font-size: 11px; font-weight: 500; min-width: 0; white-space: nowrap; letter-spacing: -.01em;
 }
-nav.tabs a .ic { font-size: 22px; line-height: 1; filter: grayscale(1); opacity: .7; }
+nav.tabs a .ic { font-size: 22px; line-height: 1; filter: grayscale(1); opacity: .7; position: relative; }
+nav.tabs a .badge {
+  position: absolute; top: -6px; right: -12px; min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px;
+  background: var(--accent); color: var(--accent-ink); font: 700 11px/18px Inter, sans-serif; text-align: center;
+}
+nav.tabs a .ic:has(.badge:not([hidden])) { filter: none; opacity: 1; }
+
+/* Shopping list */
+.menu-row { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px 18px; padding: 0 16px 6px; scrollbar-width: none; }
+.menu-row::-webkit-scrollbar { display: none; }
+.menu-card { flex: none; width: 140px; position: relative; }
+.menu-card a { text-decoration: none; color: inherit; }
+.menu-card .pic { width: 140px; height: 90px; border-radius: 12px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 38px; overflow: hidden; box-shadow: var(--shadow); }
+.menu-card .pic img { width: 100%; height: 100%; object-fit: cover; }
+.menu-card .t { font-size: 14px; font-weight: 600; line-height: 1.3; margin-top: 6px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.menu-card .x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; font-size: 13px; }
+.menu-card .srv { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-top: 2px; }
+.menu-card .srv button { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; font-size: 15px; line-height: 1; padding: 0; color: var(--text); }
+.menu-card.add .pic { border: 2px dashed var(--line); box-shadow: none; background: transparent; font-size: 30px; color: var(--muted); }
+.menu-card .done { position: absolute; top: 6px; left: 6px; background: var(--ok); color: #fff; border-radius: 999px; font-size: 12px; padding: 2px 8px; font-weight: 600; }
+.shop { list-style: none; padding: 0; margin: 0 0 20px; }
+.shop li { display: flex; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+.shop li .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line); flex: none; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; background: none; color: inherit; padding: 0; }
+.shop li .what { flex: 1; min-width: 0; cursor: pointer; }
+.shop li .from { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop li.done .what { color: var(--muted); text-decoration: line-through; }
+.shop li.done .box { background: var(--ok); border-color: var(--ok); color: #fff; }
+.cg-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; font-size: 13px; font-weight: 600;
+  padding: 7px 11px; border-radius: 999px; background: #e9f0fb; color: #1d4f9c; white-space: nowrap;
+}
+:root[data-theme="dark"] .cg-btn { background: #1d2a40; color: #a9c6f5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cg-btn { background: #1d2a40; color: #a9c6f5; } }
+.shop-head { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 4px; }
+.shop-head h3 { flex: 1; }
+.shop-head small { color: var(--muted); font-size: 13px; }
+details.staples summary { cursor: pointer; font-weight: 600; padding: 8px 0; color: var(--muted); }
+.pick-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px; margin-bottom: 8px; cursor: pointer; }
+.pick-item .thumb { width: 56px; height: 56px; font-size: 26px; }
+.pick-item .info { flex: 1; min-width: 0; }
+.pick-item .box { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; flex: none; }
+.pick-item.on { outline: 2px solid var(--accent); }
+.pick-item.on .box { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 nav.tabs a.on { color: var(--accent); }
 nav.tabs a.on .ic { filter: none; opacity: 1; }
 
@@ -350,6 +392,7 @@ body.has-timers .cook { margin-top: -14px; padding-top: 10px; }
 <nav class="tabs" id="nav">
   <a href="#/vandaag" data-nav="vandaag"><span class="ic">🍳</span>Wat eten we?</a>
   <a href="#/recepten" data-nav="recepten"><span class="ic">📖</span>Recepten</a>
+  <a href="#/boodschappen" data-nav="boodschappen"><span class="ic">🛒<b class="badge" id="list-badge" hidden></b></span>Boodschappen</a>
   <a href="#/toevoegen" data-nav="toevoegen"><span class="ic">➕</span>Toevoegen</a>
   <a href="#/instellingen" data-nav="instellingen"><span class="ic">⚙️</span>Instellingen</a>
 </nav>
@@ -421,7 +464,11 @@ const saveSettings = () => lsSet('kb_settings', settings);
 let dirty = new Set(lsGet('kb_dirty', []));
 const saveDirty = () => lsSet('kb_dirty', [...dirty]);
 
-const liveRecipes = () => [...recipes.values()].filter(r => !r.deleted);
+// `recipes` also holds the shopping list, as small documents with a `kind`
+// ('plan' = a recipe on the menu, 'item' = one line on the list), so they
+// sync the same way and two phones can tick items off at the same time.
+const liveRecipes = () => [...recipes.values()].filter(r => !r.deleted && !r.kind);
+const liveDocs = (kind) => [...recipes.values()].filter(r => !r.deleted && r.kind === kind);
 
 async function saveRecipe(r) {
   r.updatedAt = Math.max(Date.now(), (recipes.get(r.id)?.updatedAt || 0) + 1);
@@ -449,7 +496,7 @@ async function restoreRecipe(id) {
 }
 
 const trashedRecipes = () => [...recipes.values()]
-  .filter(r => r.deleted && r.title && r.deletedAt > Date.now() - TRASH_DAYS * 86400000)
+  .filter(r => r.deleted && !r.kind && r.title && r.deletedAt > Date.now() - TRASH_DAYS * 86400000)
   .sort((a, b) => b.deletedAt - a.deletedAt);
 
 async function emptyOldTrash() {
@@ -704,11 +751,13 @@ function render() {
   document.body.classList.remove('cooking');
 
   const navFor = { recept: 'recepten', koken: 'recepten', bewerk: 'toevoegen', inhuis: 'vandaag', koppel: 'instellingen' };
+  updateListBadge();
   document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === (navFor[name] || name)));
 
   if (name === 'recepten') renderList(view);
   else if (name === 'koken') renderCook(view, args[0], args[1]);
   else if (name === 'inhuis') renderPantry(view);
+  else if (name === 'boodschappen') args[0] === 'kies' ? renderPlanPicker(view) : renderShopping(view);
   else if (name === 'toevoegen') renderAdd(view);
   else if (name === 'recept') renderDetail(view, args[0], pathChanged);
   else if (name === 'bewerk') renderEdit(view, args[0]);
@@ -1021,6 +1070,10 @@ function renderDetail(view, id, fresh) {
     ${factor !== 1 ? `<p class="scaled-note">Hoeveelheden omgerekend van ${base} naar ${detailState.servings} personen. <a href="javascript:void 0" onclick="detailState.servings=${base};render()">Origineel</a></p>` : ''}
 
     ${stepIdx.length ? `<a class="btn primary block cook-start" href="#/koken/${encodeURIComponent(r.id)}/0">👩‍🍳 Start kookmodus</a>` : ''}
+    ${planFor(r.id)
+      ? `<div class="cooked-bar" style="background:var(--surface-2)">🛒 <span style="flex:1">Op de boodschappenlijst voor ${planFor(r.id).servings} personen</span>
+          <a href="#/boodschappen" style="font-weight:600">Bekijk</a></div>`
+      : `<button class="btn ghost block" style="margin:-4px 0 16px" onclick="addPlan('${esc(r.id)}', detailState.servings)">🛒 Op de boodschappenlijst (${detailState.servings} pers.)</button>`}
 
     <h2 class="section-title">Ingrediënten</h2>
     <ul class="ingredients">${ingredients || '<li class="head" style="color:var(--muted)">Geen ingrediënten ingevuld</li>'}</ul>
@@ -1430,7 +1483,8 @@ async function restoreSnapshot(id) {
     const res = await fetch(`${API}/b/${encodeURIComponent(settings.book)}/snapshots/${id}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    for (const r of data.recipes) {
+    // Only recipes: an old shopping list shouldn't come back with them.
+    for (const r of data.recipes.filter(d => !d.kind)) {
       const { deleted, deletedAt, ...rest } = r;
       await saveRecipe(rest);
     }
@@ -1439,6 +1493,308 @@ async function restoreSnapshot(id) {
   } catch (e) {
     toast('Terugzetten lukte niet: ' + (e.message || 'geen verbinding'));
   }
+}
+
+// ── Boodschappenlijst ───────────────────────────────────────────────────────
+// Adding a recipe creates a 'plan' doc plus one 'item' doc per ingredient
+// line. Items keep the recipe's original line; the quantity is scaled to the
+// plan's servings when the list is drawn, so changing servings rewrites
+// nothing. Lines for the same product are added up for display.
+
+const CG_SEARCH = 'https://www.collectandgo.be/nl/zoek?searchTerm=';
+
+// Units that can be added up, as [base unit, multiplier].
+const UNIT_BASE = {
+  g: ['g', 1], gr: ['g', 1], gram: ['g', 1], grammen: ['g', 1], kg: ['g', 1000], kilo: ['g', 1000], kilogram: ['g', 1000],
+  ml: ['ml', 1], milliliter: ['ml', 1], cl: ['ml', 10], centiliter: ['ml', 10], dl: ['ml', 100], deciliter: ['ml', 100],
+  l: ['ml', 1000], liter: ['ml', 1000],
+  el: ['el', 1], eetlepel: ['el', 1], eetlepels: ['el', 1], tl: ['tl', 1], theelepel: ['tl', 1], theelepels: ['tl', 1],
+};
+
+// Things most kitchens have; listed separately so they don't clutter the list.
+const STAPLES = ['zout', 'peper', 'olie', 'olijfolie', 'zonnebloemolie', 'arachideolie', 'water', 'kraantjeswater',
+  'suiker', 'bloem', 'bakpoeder', 'maizena', 'azijn', 'ijsblokjes', 'zeezout', 'tafelzout'];
+
+const SYNONYMS = { ajuin: 'ui', ajuinen: 'ui', uien: 'ui', look: 'knoflook', hesp: 'ham', 'selder': 'selderij' };
+
+const planFor = (recipeId) => liveDocs('plan').find(p => p.recipeId === recipeId);
+
+async function addPlan(recipeId, servings) {
+  const r = recipes.get(recipeId);
+  if (!r || planFor(recipeId)) return;
+  const plan = { id: 'plan-' + newId(), kind: 'plan', recipeId, servings: servings || settings.defaultServings || r.servings || 4, createdAt: Date.now() };
+  await saveRecipe(plan);
+  let order = 0;
+  for (const line of r.ingredients || []) {
+    if (isHeading(line) || !line.trim()) continue;
+    await saveRecipe({ id: 'item-' + newId(), kind: 'item', planId: plan.id, recipeId, line, order: order++, checked: false, createdAt: Date.now() });
+  }
+  updateListBadge();
+  if (currentRoute() === 'recept') {
+    render();
+    toast(`"${r.title}" staat op de boodschappenlijst`, { label: 'Bekijk', run: () => { location.hash = '#/boodschappen'; } });
+  }
+}
+
+async function removePlan(planId, silent) {
+  const plan = recipes.get(planId);
+  if (!plan) return;
+  const items = liveDocs('item').filter(i => i.planId === planId);
+  for (const doc of [plan, ...items]) await saveRecipe({ id: doc.id, kind: doc.kind, deleted: true });
+  if (!silent) {
+    const title = recipes.get(plan.recipeId)?.title || 'Recept';
+    toast(`${title} van de lijst gehaald`, {
+      label: 'Ongedaan maken',
+      run: async () => { for (const doc of [plan, ...items]) await saveRecipe({ ...doc }); render(); },
+    });
+  }
+  render();
+}
+
+async function setPlanServings(planId, delta) {
+  const plan = recipes.get(planId);
+  await saveRecipe({ ...plan, servings: Math.max(1, Math.min(40, plan.servings + delta)) });
+  render();
+}
+
+async function addManualItems() {
+  const input = $('#shop-in');
+  const lines = input.value.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+  for (const line of lines) {
+    await saveRecipe({ id: 'item-' + newId(), kind: 'item', line, manual: true, checked: false, createdAt: Date.now() });
+  }
+  input.value = '';
+  render();
+  $('#shop-in')?.focus();
+}
+
+// Splits "2 el olijfolie (extra vergine)" into quantity, unit and product.
+function parseLine(line) {
+  const m = line.match(QTY_RE);
+  let qty = null, rest = line;
+  if (m && Number.isFinite(parseNum(m[2]))) { qty = parseNum(m[2]); rest = line.slice(m[0].length); }
+  rest = rest.trim();
+  const word = (rest.match(/^[a-zà-ÿ.]+/i) || [''])[0];
+  const w = word.toLowerCase().replace(/\.$/, '');
+  let unit = '', unitWord = '', base = null;
+  if (qty != null && UNIT_BASE[w]) { base = UNIT_BASE[w]; unit = base[0]; unitWord = word; rest = rest.slice(word.length).trim(); }
+  else if (qty != null && UNIT_WORDS.has(w)) { unit = w.replace(/(tjes|jes|je|ken|en|s)$/, ''); unitWord = word; rest = rest.slice(word.length).trim(); }
+  const name = rest.replace(/^(van|de|het)\s+/i, '').trim() || line.trim();
+  const words = ingredientWords(name);
+  // Crude Dutch singular so "1 ui" and "3 uien" end up on one line, and the
+  // Flemish "ajuin" with them.
+  const key = (words.length ? words : [name.toLowerCase()])
+    .map(x => SYNONYMS[x] || (x.length > 3 ? x.replace(/(en|s)$/, '') : x)).join(' ');
+  return { qty, unit, unitWord, mult: base ? base[1] : 1, name, key, search: words.join(' ') || name };
+}
+
+// Adds up quantities per kind of unit: "500 g + 1 blik" when they can't be
+// combined. Lines without a quantity ("zout") add nothing.
+function formatTotal(members) {
+  const byUnit = new Map();
+  for (const m of members.filter(m => m.qty != null)) {
+    if (!byUnit.has(m.unit)) byUnit.set(m.unit, []);
+    byUnit.get(m.unit).push(m);
+  }
+  return [...byUnit.values()].map(list => {
+    const first = list[0];
+    // All in the same unit word (e.g. all "deciliter"): keep that unit.
+    if (list.every(m => m.unitWord.toLowerCase() === first.unitWord.toLowerCase())) {
+      let n = list.reduce((s, m) => s + m.qty, 0);
+      // You can't buy 1½ onion or half a tin: round pieces up.
+      if (!['g', 'ml', 'el', 'tl'].includes(first.unit)) n = Math.ceil(n - 1e-9);
+      return `${formatQty(n, ' ' + first.unitWord)}${first.unitWord ? ' ' + first.unitWord : ''}`;
+    }
+    const n = list.reduce((s, m) => s + m.qty * m.mult, 0);
+    if (first.unit === 'g') return n >= 1000 ? `${decimal(n / 1000, 2)} kg` : `${formatQty(n, ' g')} g`;
+    if (first.unit === 'ml') return n >= 1000 ? `${decimal(n / 1000, 2)} l` : `${formatQty(n, ' ml')} ml`;
+    return `${formatQty(n, '')} ${first.unitWord}`.trim();
+  }).join(' + ');
+}
+
+// Supermarket sections, so the list follows the shop instead of the recipes.
+// Checked in this order: "kippenbouillon" is a jar, not meat, and
+// "tomatenblokjes" a tin, not fresh vegetables.
+const AISLES = [
+  { id: 'kruiden', label: '🧂 Kruiden & specerijen', words: ['zout', 'peper', 'kruiden', 'paprikapoeder', 'kurkuma', 'curry', 'komijn', 'oregano', 'kaneel', 'nootmuskaat', 'laurier', 'tijm', 'rozemarijn', 'chilipoeder', 'sesamza', 'specerij', 'vanille', 'saffraan', 'kerrie'] },
+  { id: 'droog', label: '🥫 Conserven, pasta & rijst', words: ['bouillon', 'blik', 'tomatenblokjes', 'passata', 'tomatenpuree', 'kokosmelk', 'pasta', 'spaghetti', 'penne', 'tagliatelle', 'macaroni', 'lasagne', 'fusilli', 'noedel', 'mie', 'rijst', 'couscous', 'bulgur', 'quinoa', 'bloem', 'suiker', 'olie', 'azijn', 'soja', 'mosterd', 'mayonaise', 'ketchup', 'honing', 'noten', 'pinda', 'chocolade', 'appelsap', 'sinaasappelsap', 'fruitsap', 'sap', 'olijfolie', 'zonnebloemolie', 'sesamolie', 'arachideolie', 'bier', 'wijn', 'fond', 'paneermeel', 'bakpoeder', 'maizena', 'gist', 'linzen', 'kikkererwten', 'kapper', 'olijven', 'pesto', 'saus', 'boemboe', 'jam'] },
+  { id: 'vlees', label: '🥩 Vlees, vis & veggie', words: ['kip', 'gehakt', 'rund', 'varken', 'spek', 'ham', 'worst', 'zalm', 'vis', 'scampi', 'garna', 'mossel', 'kalkoen', 'lam', 'chorizo', 'kabeljauw', 'tonijn', 'steak', 'biefstuk', 'stoofvlees', 'filet', 'lardon', 'bacon', 'salami', 'tofu', 'tempeh', 'quorn', 'vlees'] },
+  { id: 'zuivel', label: '🧀 Zuivel & eieren', words: ['melk', 'room', 'boter', 'kaas', 'yoghurt', 'ei', 'eieren', 'mascarpone', 'mozzarella', 'parmezaan', 'parmigiano', 'feta', 'crème', 'creme', 'ricotta', 'emmental', 'gruyère', 'cheddar', 'kwark'] },
+  { id: 'brood', label: '🥖 Brood & bakkerij', words: ['brood', 'wrap', 'tortilla', 'pistolet', 'naan', 'pita', 'baguette', 'ciabatta', 'bladerdeeg', 'deeg', 'beschuit', 'toast', 'bun'] },
+  { id: 'groenten', label: '🥬 Groenten & fruit', words: ['ui', 'uien', 'ajuin', 'sjalot', 'knoflook', 'tomaat', 'tomaten', 'paprika', 'champignon', 'wortel', 'prei', 'courgette', 'aubergine', 'broccoli', 'bloemkool', 'spinazie', 'sla', 'rucola', 'komkommer', 'peultje', 'boon', 'bonen', 'haricots', 'erwt', 'mais', 'aardappel', 'kriel', 'appel', 'citroen', 'limoen', 'sinaas', 'banaan', 'peer', 'avocado', 'gember', 'peterselie', 'koriander', 'basilicum', 'munt', 'bieslook', 'dille', 'boksoi', 'bimi', 'pompoen', 'selder', 'venkel', 'radijs', 'kool', 'witloof', 'asperge', 'lente-ui', 'bosui', 'chilipeper', 'groente', 'fruit', 'bes', 'aardbei', 'druif', 'mango', 'ananas', 'pastinaak', 'biet', 'kervel', 'waterkers'] },
+];
+const AISLE_ORDER = ['groenten', 'vlees', 'zuivel', 'brood', 'droog', 'kruiden', 'overig'];
+const AISLE_LABEL = Object.fromEntries([...AISLES.map(a => [a.id, a.label]), ['overig', '🛒 Overige']]);
+
+function aisleOf(name) {
+  const t = name.toLowerCase();
+  // Long words may sit inside a compound ("kippenbouillon"); short ones
+  // must start a word ("ui" is not in "fruit").
+  const hit = (w) => w.length >= 5 ? t.includes(w) : new RegExp('(^|[^a-zà-ÿ])' + escRe(w)).test(t);
+  return AISLES.find(a => a.words.some(hit))?.id || 'overig';
+}
+
+// Groups items by product (and compatible unit) and scales recipe lines.
+function shoppingLines() {
+  const plans = new Map(liveDocs('plan').map(p => [p.id, p]));
+  const groups = new Map();
+  for (const it of liveDocs('item')) {
+    const plan = plans.get(it.planId);
+    if (!it.manual && !plan) continue; // plan was removed on another phone
+    const r = plan ? recipes.get(plan.recipeId) : null;
+    const p = parseLine(it.line);
+    if (p.qty != null && plan) p.qty *= plan.servings / (r?.servings || 4);
+    const gk = p.key;
+    // The unit word counts for the aisle: "blik tomaten" is a tin, not fresh.
+    if (!groups.has(gk)) groups.set(gk, { key: gk, name: p.name, search: p.search, aisle: aisleOf(`${p.unitWord} ${p.name}`), members: [], items: [], from: new Set() });
+    const g = groups.get(gk);
+    g.items.push(it);
+    if (!it.checked) g.members.push(p);
+    if (r) g.from.add(r.title);
+  }
+  return [...groups.values()].map(g => {
+    const done = g.items.every(i => i.checked);
+    const shown = done ? g.items.map(i => parseLine(i.line)) : g.members;
+    const staple = STAPLES.includes(g.search.split(' ')[0]);
+    return { ...g, done, staple, total: formatTotal(shown) };
+  }).sort((a, b) => AISLE_ORDER.indexOf(a.aisle) - AISLE_ORDER.indexOf(b.aisle) || a.name.localeCompare(b.name, 'nl'));
+}
+
+async function toggleShopLine(key) {
+  const line = shoppingLines().find(l => l.key === key);
+  if (!line) return;
+  const to = !line.done;
+  for (const it of line.items) if (it.checked !== to) await saveRecipe({ ...it, checked: to });
+  render();
+}
+
+function updateListBadge() {
+  const badge = $('#list-badge');
+  if (!badge) return;
+  const open = shoppingLines().filter(l => !l.done && !l.staple).length;
+  badge.hidden = !open;
+  badge.textContent = open > 99 ? '99+' : open;
+}
+
+function shopLineHTML(l) {
+  const from = [...l.from];
+  return `<li class="${l.done ? 'done' : ''}">
+    <button class="box" onclick="toggleShopLine(${esc(JSON.stringify(l.key))})" aria-label="${l.done ? 'Niet gekocht' : 'Gekocht'}">${l.done ? '✓' : ''}</button>
+    <span class="what" onclick="toggleShopLine(${esc(JSON.stringify(l.key))})">${l.total ? `<span class="qty">${esc(l.total)}</span> ` : ''}${esc(l.name)}
+      ${from.length ? `<span class="from">${esc(from.join(' · '))}</span>` : ''}</span>
+    ${l.done ? '' : `<a class="cg-btn" href="${CG_SEARCH}${encodeURIComponent(l.search)}" target="_blank" rel="noopener" title="Zoeken bij Collect&Go">🔍 C&amp;G</a>`}
+  </li>`;
+}
+
+function renderShopping(view) {
+  const plans = liveDocs('plan').sort((a, b) => a.createdAt - b.createdAt);
+  const lines = shoppingLines();
+  const open = lines.filter(l => !l.done && !l.staple);
+  const staples = lines.filter(l => !l.done && l.staple);
+  const done = lines.filter(l => l.done);
+
+  const menuCard = (p) => {
+    const r = recipes.get(p.recipeId);
+    if (!r || r.deleted) return '';
+    const cooked = r.lastCooked && r.lastCooked > p.createdAt;
+    return `<div class="menu-card">
+      <a href="#/recept/${encodeURIComponent(r.id)}">${picHTML(r)}<div class="t">${esc(r.title)}</div></a>
+      ${cooked ? '<span class="done">✓ gekookt</span>' : ''}
+      <button class="x" onclick="removePlan('${p.id}')" aria-label="Van de lijst halen">✕</button>
+      <div class="srv"><button onclick="setPlanServings('${p.id}',-1)" aria-label="Minder personen">−</button>${p.servings} pers.<button onclick="setPlanServings('${p.id}',1)" aria-label="Meer personen">+</button></div>
+    </div>`;
+  };
+
+  view.innerHTML = `
+    <div class="page-head"><h1>Boodschappen</h1>
+      ${lines.length ? `<button class="btn" style="min-height:40px;padding:8px 14px" onclick="shareShoppingList()">↗ Delen</button>` : ''}</div>
+
+    <h3 style="margin-bottom:10px">Op het menu</h3>
+    <div class="menu-row">
+      ${plans.map(menuCard).join('')}
+      <div class="menu-card add"><a href="#/boodschappen/kies"><div class="pic">＋</div><div class="t">Recepten kiezen</div></a></div>
+    </div>
+
+    <div class="pantry-input">
+      <input id="shop-in" placeholder="Iets extra, bv. melk, wc-papier…" autocomplete="off" enterkeyhint="done"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addManualItems()}">
+      <button class="btn primary" style="white-space:nowrap" onclick="addManualItems()">Voeg toe</button>
+    </div>
+
+    ${lines.length ? `
+      ${!settings.cgHintSeen ? `<div class="banner"><span>🔍</span><div><b>Zo komt het in je Collect&Go-mandje</b>
+        Tik op <b style="display:inline">C&amp;G</b> om het product te zoeken in de Collect&Go-webshop, leg het in je mandje en kom terug om af te vinken.
+        Log de eerste keer in met je Xtra-account; je mandje is hetzelfde als in de Xtra-app.</div>
+        <button class="x" onclick="settings.cgHintSeen=true;saveSettings();render()" aria-label="Sluiten">✕</button></div>` : ''}
+      <div class="shop-head"><h3>Nog te kopen</h3><small>${open.length}</small></div>
+      ${open.length ? AISLE_ORDER.filter(a => open.some(l => l.aisle === a)).map(a => `
+        <div class="hint" style="margin:12px 0 0;font-weight:600">${AISLE_LABEL[a]}</div>
+        <ul class="shop" style="margin-bottom:4px">${open.filter(l => l.aisle === a).map(shopLineHTML).join('')}</ul>`).join('')
+        : '<ul class="shop"><li style="border:none;color:var(--muted)">Alles gevonden! 🎉</li></ul>'}
+      ${staples.length ? `<details class="staples"><summary>Heb je dit nog in huis? (${staples.length})</summary><ul class="shop">${staples.map(shopLineHTML).join('')}</ul></details>` : ''}
+      ${done.length ? `<div class="shop-head" style="margin-top:14px"><h3>In het mandje</h3><small>${done.length}</small></div><ul class="shop">${done.map(shopLineHTML).join('')}</ul>` : ''}
+      <button class="btn danger block" style="margin:10px 0 24px" onclick="clearShoppingList()">Lijst leegmaken</button>
+    ` : `<div class="empty-state"><div class="big">🛒</div><h2>De lijst is leeg</h2>
+        <p>Kies wat jullie deze week eten; de ingrediënten komen vanzelf op de lijst, omgerekend en opgeteld.</p>
+        <a class="btn primary" href="#/boodschappen/kies">Recepten kiezen</a></div>`}`;
+}
+
+async function clearShoppingList() {
+  const docs = [...liveDocs('plan'), ...liveDocs('item')];
+  for (const d of docs) await saveRecipe({ id: d.id, kind: d.kind, deleted: true });
+  render();
+  toast('Lijst leeggemaakt', { label: 'Ongedaan maken', run: async () => { for (const d of docs) await saveRecipe({ ...d }); render(); } });
+}
+
+async function shareShoppingList() {
+  const lines = shoppingLines().filter(l => !l.done);
+  const text = 'Boodschappen\n' + lines.filter(l => !l.staple).map(l => `• ${l.total ? l.total + ' ' : ''}${l.name}`).join('\n') +
+    (lines.some(l => l.staple) ? '\n\nNog in huis?\n' + lines.filter(l => l.staple).map(l => `• ${l.total ? l.total + ' ' : ''}${l.name}`).join('\n') : '');
+  if (navigator.share) { try { await navigator.share({ title: 'Boodschappen', text }); } catch {} }
+  else { try { await navigator.clipboard.writeText(text); toast('Lijst gekopieerd'); } catch { toast('Kopiëren lukte niet'); } }
+}
+
+// Picking several recipes at once for the week.
+const pickState = { ids: new Set(), q: '' };
+
+function renderPlanPicker(view) {
+  view.innerHTML = `
+    <div class="page-head"><button class="back" onclick="goBack()" aria-label="Terug">←</button><h1>Wat eten we deze week?</h1></div>
+    <input class="search" type="search" placeholder="Zoek een recept…" value="${esc(pickState.q)}" oninput="pickState.q=this.value;renderPickList()">
+    <div id="pick-list"></div>
+    <div class="form-actions"><button class="btn primary" id="pick-go" onclick="addPickedPlans()"></button></div>`;
+  renderPickList();
+}
+
+function renderPickList() {
+  const q = pickState.q.trim().toLowerCase();
+  const list = liveRecipes()
+    .filter(r => !q || r.title.toLowerCase().includes(q))
+    .sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || (a.lastCooked || 0) - (b.lastCooked || 0));
+  $('#pick-list').innerHTML = list.map(r => {
+    const planned = !!planFor(r.id), on = pickState.ids.has(r.id);
+    return `<div class="pick-item${on ? ' on' : ''}" ${planned ? 'style="opacity:.55"' : `onclick="togglePick('${esc(r.id)}')"`}>
+      ${thumbHTML(r)}<div class="info"><div style="font-weight:600">${esc(r.title)}</div>
+      <div class="meta">${planned ? '<span>✓ staat al op de lijst</span>' : recipeMeta(r)}</div></div>
+      ${planned ? '' : `<span class="box">${on ? '✓' : ''}</span>`}</div>`;
+  }).join('') || '<div class="empty-state"><p>Geen recepten gevonden.</p></div>';
+  const n = pickState.ids.size;
+  const go = $('#pick-go');
+  go.disabled = !n;
+  go.textContent = n ? `${n} ${n === 1 ? 'recept' : 'recepten'} op de lijst zetten` : 'Kies een of meer recepten';
+}
+
+function togglePick(id) {
+  pickState.ids.has(id) ? pickState.ids.delete(id) : pickState.ids.add(id);
+  renderPickList();
+}
+
+async function addPickedPlans() {
+  for (const id of pickState.ids) await addPlan(id);
+  const n = pickState.ids.size;
+  pickState.ids.clear(); pickState.q = '';
+  location.replace('#/boodschappen');
+  toast(`${n} ${n === 1 ? 'recept' : 'recepten'} toegevoegd`);
 }
 
 function recipeAsText(r, servings) {
