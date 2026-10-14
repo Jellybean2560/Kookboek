@@ -1,4 +1,4 @@
-const CACHE = 'kookboek-v9';
+const CACHE = 'kookboek-v10';
 const SHELL = ['./', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
 
 self.addEventListener('install', e => {

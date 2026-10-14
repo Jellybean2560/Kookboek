@@ -264,6 +264,19 @@ nav.tabs a .ic:has(.badge:not([hidden])) { filter: none; opacity: 1; }
 .day-opt span { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .day-opt.on { border-color: var(--accent); background: var(--accent-soft); }
 
+/* Order mode on a recipe */
+.ingr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ingr-head .section-title { margin: 8px 0 10px; }
+.ingredients.ordering li.order-row { display: flex; align-items: center; gap: 10px; cursor: default; }
+.ingredients.ordering li.order-row .box { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--line); background: none; cursor: pointer; padding: 0; font-size: 15px; color: inherit; flex: none; }
+.ingredients.ordering li.order-row .what { flex: 1; min-width: 0; }
+.ingredients.ordering li.order-row .from { display: block; font-size: 12px; color: var(--muted); }
+.ingredients.ordering li.order-row.done .what, .ingredients.ordering li.order-row.skip .what { color: var(--muted); }
+.ingredients.ordering li.order-row.done .box { background: var(--ok-soft); border-color: var(--ok); }
+.ingredients.ordering li.order-row.skip .box { background: var(--ok); border-color: var(--ok); color: #fff; }
+.radio-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; cursor: pointer; }
+.radio-row input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--accent); }
+
 /* Photo picker */
 .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 @media (min-width: 560px) { .photo-grid { grid-template-columns: repeat(4, 1fr); } }
@@ -821,6 +834,7 @@ function render() {
   const name = first || 'vandaag';
   const view = $('#view');
   if (name !== 'vandaag' && name !== 'recept') todayState.planDay = null;
+  if (name !== 'recept' || args[0] !== orderState.id) orderState.id = null;
   const pathChanged = path !== lastPath;
   lastPath = path;
   releaseWakeLock();
@@ -1119,8 +1133,10 @@ function renderDetail(view, id, fresh) {
   const base = r.servings;
   const factor = scaleFactor(r, detailState.servings);
   const tags = [...effBases(r).map(t => BASE_BY_ID[t]), ...effProteins(r).map(t => PROTEIN_BY_ID[t])].filter(t => t && t.id !== 'anders');
+  const ordering = orderState.id === r.id;
   const ingredients = (r.ingredients || []).map((line, i) => isHeading(line)
     ? `<li class="head">${esc(headingText(line))}</li>`
+    : ordering ? orderRowHTML(r, line, i, factor)
     : `<li class="${detailState.ticked.has(i) ? 'done' : ''}" onclick="tickIngredient(${i})"><span class="box">${detailState.ticked.has(i) ? '✓' : ''}</span><span>${scaleLine(line, factor)}</span></li>`).join('');
   const stepIdx = (r.steps || []).map((s, i) => isHeading(s) ? -1 : i).filter(i => i >= 0);
   const current = stepIdx.find(i => !detailState.stepsDone.has(i));
@@ -1164,8 +1180,10 @@ function renderDetail(view, id, fresh) {
     ${stepIdx.length ? `<a class="btn primary block cook-start" href="#/koken/${encodeURIComponent(r.id)}/0">👩‍🍳 Start kookmodus</a>` : ''}
     ${planBarHTML(r)}
 
-    <h2 class="section-title">Ingrediënten</h2>
-    <ul class="ingredients">${ingredients || '<li class="head" style="color:var(--muted)">Geen ingrediënten ingevuld</li>'}</ul>
+    <div class="ingr-head"><h2 class="section-title">Ingrediënten</h2>
+      ${(r.ingredients || []).length ? `<button class="btn ${ordering ? 'primary' : 'ghost'}" style="min-height:38px;padding:6px 14px" onclick="toggleOrder('${esc(r.id)}')">${ordering ? '✓ Klaar' : '🛒 Bestellen'}</button>` : ''}</div>
+    ${ordering ? orderIntroHTML(r) : ''}
+    <ul class="ingredients${ordering ? ' ordering' : ''}">${ingredients || '<li class="head" style="color:var(--muted)">Geen ingrediënten ingevuld</li>'}</ul>
 
     <h2 class="section-title">Bereiding</h2>
     <ol class="steps">${steps || '<li class="head" style="color:var(--muted)">Geen stappen ingevuld</li>'}</ol>
@@ -1777,7 +1795,18 @@ function parseLine(line) {
   // Flemish "ajuin" with them.
   const key = (words.length ? words : [name.toLowerCase()])
     .map(x => SYNONYMS[x] || (x.length > 3 ? x.replace(/(en|s)$/, '') : x)).join(' ');
-  return { qty, unit, unitWord, mult: base ? base[1] : 1, name, key, search: words.join(' ') || name };
+  const core = words.join(' ') || name.toLowerCase();
+  return { qty, unit, unitWord, mult: base ? base[1] : 1, name, key, core, search: searchTerm(name) || core };
+}
+
+// What to type in a shop's search box: the product as written, minus notes in
+// brackets, anything after a comma and how it is prepared. Unlike the
+// matching key it keeps describing words: "geraspte kaas", not "kaas".
+const PREP_WORDS = new Set(('gesnipperd gesneden geperst geschild fijngesneden fijngehakt grofgehakt gehalveerd ontpit in blokjes reepjes plakjes ringen ' +
+  'partjes schijfjes stukjes ongeveer ca optioneel eventueel evt naar smaak extra om te bakken bestrijken').split(' '));
+function searchTerm(name) {
+  return name.toLowerCase().replace(/\([^)]*\)/g, ' ').split(/[,;]|\s[-–]\s|-\s/)[0]
+    .split(/\s+/).filter(w => w && !PREP_WORDS.has(w) && !/^\d/.test(w)).join(' ').trim();
 }
 
 // Adds up quantities per kind of unit: "500 g + 1 blik" when they can't be
@@ -1838,7 +1867,7 @@ function shoppingLines() {
     if (p.qty != null && plan && r) p.qty *= scaleFactor(r, plan.servings);
     const gk = p.key;
     // The unit word counts for the aisle: "blik tomaten" is a tin, not fresh.
-    if (!groups.has(gk)) groups.set(gk, { key: gk, name: p.name, search: p.search, aisle: aisleOf(`${p.unitWord} ${p.name}`), members: [], items: [], from: new Set() });
+    if (!groups.has(gk)) groups.set(gk, { key: gk, name: p.name, search: p.search, core: p.core, aisle: aisleOf(`${p.unitWord} ${p.name}`), members: [], items: [], from: new Set() });
     const g = groups.get(gk);
     g.items.push(it);
     if (!it.checked) g.members.push(p);
@@ -1848,7 +1877,7 @@ function shoppingLines() {
   return [...groups.values()].map(g => {
     const done = g.items.every(i => i.checked);
     const shown = done ? g.items.map(i => parseLine(i.line)) : g.members;
-    const staple = STAPLES.includes(g.search.split(' ')[0]);
+    const staple = STAPLES.includes(g.core.split(' ')[0]);
     return { ...g, done, staple, total: formatTotal(shown) };
   }).sort((a, b) => AISLE_ORDER.indexOf(a.aisle) - AISLE_ORDER.indexOf(b.aisle) || a.name.localeCompare(b.name, 'nl'));
 }
@@ -1877,11 +1906,100 @@ function shopLineHTML(l) {
     <button class="box" onclick="toggleShopLine(${key})" aria-label="${l.done ? 'Niet gekocht' : 'Gekocht'}">${l.done ? '✓' : ''}</button>
     <span class="what" onclick="toggleShopLine(${key})">${l.total ? `<span class="qty">${esc(l.total)}</span> ` : ''}${esc(l.name)}
       ${prod?.label ? `<span class="from">📌 ${esc(prod.label)}</span>` : from.length ? `<span class="from">${esc(from.join(' · '))}</span>` : ''}</span>
-    ${l.done ? '' : prod
-      ? `<a class="cg-btn pinned" href="${esc(prod.url)}" target="_blank" rel="noopener" title="Vast product openen bij Collect&Go">🛒 C&amp;G</a>`
-      : `<a class="cg-btn" href="${CG_SEARCH}${encodeURIComponent(l.search)}" target="_blank" rel="noopener" title="Zoeken bij Collect&Go">🔍 C&amp;G</a>`}
+    ${l.done ? '' : cgButtonHTML(l.key, l.search)}
     ${l.done ? '' : `<button class="pin-btn${prod ? ' on' : ''}" onclick="openProductSheet(${key}, ${esc(JSON.stringify(l.name))}, ${esc(JSON.stringify(l.search))})" aria-label="Vast product kiezen" title="Vast product">📌</button>`}
   </li>`;
+}
+
+// ── Bestellen vanuit een recept ─────────────────────────────────────────────
+// On a recipe, "Bestellen" turns the ingredient list into a checklist with a
+// Collect&Go button per line. Tapping it marks the line as in the basket; the
+// marks are kept per recipe for a day, so leaving for the webshop and coming
+// back doesn't lose them.
+
+const XTRA_COGO = 'https://www.mijnxtra.be/cogo'; // opens Collect&Go in the Xtra app
+const orderState = { id: null };
+const ORDER_KEEP_MS = 24 * 3600_000;
+
+function orderMarks(id) {
+  const all = lsGet('kb_order', {});
+  const m = all[id];
+  return m && Date.now() - m.at < ORDER_KEEP_MS ? m : { at: Date.now(), done: [], skip: [] };
+}
+function saveOrderMarks(id, m) {
+  const all = lsGet('kb_order', {});
+  for (const k of Object.keys(all)) if (Date.now() - all[k].at > ORDER_KEEP_MS) delete all[k];
+  all[id] = { ...m, at: Date.now() };
+  lsSet('kb_order', all);
+}
+
+function toggleOrder(id) {
+  orderState.id = orderState.id === id ? null : id;
+  if (orderState.id) {
+    // Pantry staples start as "heb ik al".
+    const r = recipes.get(id), m = orderMarks(id);
+    if (!lsGet('kb_order', {})[id]) {
+      (r.ingredients || []).forEach((l, i) => { if (!isHeading(l) && STAPLES.includes(parseLine(l).core.split(' ')[0])) m.skip.push(i); });
+      saveOrderMarks(id, m);
+    }
+  }
+  render();
+}
+
+function orderIntroHTML(r) {
+  const m = orderMarks(r.id);
+  const lines = (r.ingredients || []).filter(l => !isHeading(l)).length;
+  const left = lines - m.done.length - m.skip.length;
+  return `<p class="hint" style="margin:-4px 0 10px">Tik op <b>C&amp;G</b> om een product in je mandje te leggen; het wordt dan afgevinkt.
+    Heb je iets al in huis, tik dan op het vakje. ${left > 0 ? `Nog ${left} te doen.` : 'Alles gedaan! 🎉'}
+    <a href="${XTRA_COGO}/basket" target="_blank" rel="noopener">Mandje openen</a></p>`;
+}
+
+function orderRowHTML(r, line, i, factor) {
+  const m = orderMarks(r.id);
+  const p = parseLine(line);
+  const state = m.done.includes(i) ? 'done' : m.skip.includes(i) ? 'skip' : '';
+  return `<li class="order-row ${state}">
+    <button class="box" onclick="toggleOrderSkip('${esc(r.id)}', ${i})" aria-label="${state ? 'Toch nodig' : 'Heb ik al'}">${state === 'done' ? '🛒' : state === 'skip' ? '✓' : ''}</button>
+    <span class="what">${scaleLine(line, factor)}${state === 'skip' ? '<span class="from">heb ik al</span>' : state === 'done' ? '<span class="from">in het mandje</span>' : ''}</span>
+    ${state ? '' : cgButtonHTML(p.key, p.search, `markOrdered('${esc(r.id)}', ${i})`)}
+    ${state ? '' : `<button class="pin-btn${productFor(p.key) ? ' on' : ''}" onclick="openProductSheet(${esc(JSON.stringify(p.key))}, ${esc(JSON.stringify(p.name))}, ${esc(JSON.stringify(p.search))})" aria-label="Vast product kiezen" title="Vast product">📌</button>`}
+  </li>`;
+}
+
+function toggleOrderSkip(id, i) {
+  const m = orderMarks(id);
+  if (m.done.includes(i) || m.skip.includes(i)) { m.done = m.done.filter(x => x !== i); m.skip = m.skip.filter(x => x !== i); }
+  else m.skip.push(i);
+  saveOrderMarks(id, m);
+  render();
+}
+
+function markOrdered(id, i) {
+  const m = orderMarks(id);
+  if (!m.done.includes(i)) m.done.push(i);
+  saveOrderMarks(id, m);
+  // Redraw after the link has opened, so the tap still navigates.
+  setTimeout(render, 300);
+}
+
+// One Collect&Go button for the list and the recipe page. A pinned product
+// opens its own link (an Xtra app product link opens in the app). Otherwise
+// it searches the webshop, or, in Xtra-app mode, copies the term and opens
+// Collect&Go in the app, which has no search link of its own.
+function cgButtonHTML(key, search, after = '') {
+  const prod = productFor(key);
+  if (prod) {
+    return `<a class="cg-btn pinned" href="${esc(prod.url)}" target="_blank" rel="noopener" onclick="${after}" title="Vast product openen">🛒 C&amp;G</a>`;
+  }
+  if (settings.cgApp) {
+    return `<a class="cg-btn" href="${XTRA_COGO}" target="_blank" rel="noopener" onclick="copySearchTerm(${esc(JSON.stringify(search))});${after}" title="Zoekterm kopiëren en Xtra-app openen">📋 Xtra</a>`;
+  }
+  return `<a class="cg-btn" href="${CG_SEARCH}${encodeURIComponent(search)}" target="_blank" rel="noopener" onclick="${after}" title="Zoeken bij Collect&Go">🔍 C&amp;G</a>`;
+}
+
+function copySearchTerm(term) {
+  try { navigator.clipboard.writeText(term); toast(`“${term}” gekopieerd — plak het in het zoekveld`); } catch {}
 }
 
 // ── Vaste producten (Collect&Go) ────────────────────────────────────────────
@@ -1898,7 +2016,7 @@ function openProductSheet(key, name, search) {
     <p class="hint" style="margin:0 0 14px">Dan opent de knop meteen dat product in Collect&Go, met <i>Toevoegen aan winkelwagen</i>.</p>
     <ol class="hint" style="margin:0 0 14px;padding-left:20px;line-height:1.6">
       <li><a href="${CG_SEARCH}${encodeURIComponent(search)}" target="_blank" rel="noopener">Zoek “${esc(search)}” bij Collect&Go</a> en tik op het product dat je altijd neemt.</li>
-      <li>Kopieer de link uit de adresbalk (of <i>Delen → Kopiëren</i>).</li>
+      <li>Kopieer de link uit de adresbalk (of <i>Delen → Kopiëren</i>). In de Xtra-app: open het product → <i>Delen</i> → <i>Kopiëren</i>; zo'n link opent later meteen in de app.</li>
       <li>Plak hem hieronder.</li>
     </ol>
     <label class="field"><span>Link naar het product</span>
@@ -1919,7 +2037,7 @@ async function saveProduct(key, remove) {
   } else {
     const url = $('#prod-url').value.trim();
     let ok = false;
-    try { ok = /(^|\.)(collectandgo|colruyt)\.be$/.test(new URL(url).hostname); } catch {}
+    try { ok = /(^|\.)(collectandgo|colruyt|mijnxtra)\.be$/.test(new URL(url).hostname); } catch {}
     if (!ok) { $('#prod-msg').innerHTML = '<span style="color:var(--danger)">Plak een link van collectandgo.be.</span>'; return; }
     await saveRecipe({ id, kind: 'product', key, url, label: $('#prod-label').value.trim() });
   }
@@ -3007,6 +3125,15 @@ function renderSettings(view) {
         <option value="0"${!settings.defaultServings ? ' selected' : ''}>Zoals in het recept</option>
         ${Array.from({ length: 10 }, (_, i) => i + 1).map(i => `<option value="${i}"${settings.defaultServings === i ? ' selected' : ''}>${i} ${i === 1 ? 'persoon' : 'personen'}</option>`).join('')}
       </select>
+    </div>
+
+    <div class="card">
+      <h2>🛒 Collect&Go</h2>
+      <p>Waar opent de knop <b>C&amp;G</b> bij een ingrediënt?</p>
+      <label class="radio-row"><input type="radio" name="cg" ${settings.cgApp ? '' : 'checked'} onchange="settings.cgApp=false;saveSettings()">
+        <span><b>Webshop in de browser</b><br><span class="hint" style="margin:0">Zoekt het product meteen op.</span></span></label>
+      <label class="radio-row"><input type="radio" name="cg" ${settings.cgApp ? 'checked' : ''} onchange="settings.cgApp=true;saveSettings()">
+        <span><b>Xtra-app</b><br><span class="hint" style="margin:0">Opent Collect&Go in de Xtra-app en kopieert de zoekterm; plak hem daar in het zoekveld. (De Xtra-app kan niet rechtstreeks zoeken via een link.)</span></span></label>
     </div>
 
     <div class="card">
