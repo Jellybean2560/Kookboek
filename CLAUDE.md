@@ -9,9 +9,9 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
   - Week menu: a `plan` doc has `day` ('YYYY-MM-DD' or null = shopping only). Home shows "Vanavond" (plans for today) and a 7-day strip; tapping an empty day sets `todayState.planDay`, which makes the recipe page offer "Plan voor <dag>". `openPlanSheet()` picks/changes a day.
   - Kooklogboek: `recipe.log = [{at, note}]` (newest first, max 50). "Gekookt" and cook-mode "Klaar" open the log sheet.
   - Cook mode: 🔊 reads steps aloud (speechSynthesis, nl-BE voice if present); 🎙️ uses (webkit)SpeechRecognition for "volgende/vorige/herhaal/timer/klaar" and restarts itself when the browser stops listening; recognition is aborted while the app is speaking. Works well in Chrome on Android, unreliable on iOS.
-  - Text size: `settings.textScale` → CSS `--scale` on body text, detail title and cook text.
+  - Text size: `settings.textScale` (1 / 1.2 / 1.45 / 1.7) × `--device` (1.12 on screens ≥ 700px, i.e. iPad) → CSS `zoom` on `.wrap`, `.sheet` and `#timers`, so everything in the content scales together. Lengths that must match the unzoomed screen (sticky form bar, cook-mode height) divide by `--fs`.
   - Bottom sheets via `openSheet()/closeSheet()`; render() only closes them on a real navigation, since background syncs redraw too.
-- `sw.js` — network-first app shell (`kookboek-v6`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
+- `sw.js` — network-first app shell (`kookboek-v7`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
 - `worker/` — Cloudflare Worker `kookboek`, live at `https://kookboek.jellevandenwouwer.workers.dev`. Deploy with `cd worker && npx wrangler deploy` (wrangler is logged in on this PC).
   - `GET /import?url=` fetches a recipe page server-side, parses schema.org `Recipe` JSON-LD (microdata fallback), returns normalised JSON. Never returns raw HTML (not an open proxy).
   - `GET /image?url=` returns one image (image/* only, ≤8 MB). The app stores imported photos as its own ~900px JPEG data-URL copy (`copyImage`), and `migrateImages()` converts older recipes that still hotlink.
