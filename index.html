@@ -489,7 +489,11 @@ const BASES = [
   { id: 'couscous', label: 'Couscous', emoji: '🥣', words: ['couscous', 'bulgur', 'parelcouscous'] },
   { id: 'brood', label: 'Brood', emoji: '🥖', words: ['brood', 'burger', 'pistolet', 'pita', 'naan', 'stokbrood', 'ciabatta', 'focaccia', 'broodje', 'bun', 'croque', 'toast', 'pizza', 'baguette'] },
   { id: 'wraps', label: 'Wraps', emoji: '🌯', words: ['wrap', 'tortilla', 'taco', 'burrito', 'fajita', 'enchilada', 'quesadilla'] },
-  { id: 'anders', label: 'Iets anders', emoji: '🥗', words: [] },
+  // Soup and salad are found by the title only: "soepgroenten" or a head of
+  // lettuce in the ingredients don't make a dish soup or salad.
+  { id: 'soep', label: 'Soep', emoji: '🍲', words: [] },
+  { id: 'salade', label: 'Salade', emoji: '🥗', words: [] },
+  { id: 'anders', label: 'Iets anders', emoji: '🍽️', words: [] },
 ];
 const PROTEINS = [
   { id: 'kip', label: 'Kip', emoji: '🍗', words: ['kip', 'kippen', 'chicken', 'gevogelte', 'eend'] },
@@ -718,20 +722,26 @@ function guessTags(title, ingredients) {
     .replace(/rijst(noedel|vermicelli|papier|azijn|wijn)/g, '$1');
   const hit = (words) => words.some(w => new RegExp(`[^a-zà-ÿ]${w.replace(/[-]/g, '\\-')}`).test(text));
   const bases = BASES.filter(b => b.words.length && hit(b.words)).map(b => b.id);
+  const name = String(title || '').toLowerCase();
+  if (/soep(?!vlees|groente|balletje)|soup|velouté|veloute|gazpacho|minestrone|bisque|chowder|potage|bouillabaisse/.test(name)) bases.unshift('soep');
+  if (/salade|salad|slaatje/.test(name)) bases.unshift('salade');
   let proteins = PROTEINS.filter(p => p.words.length && hit(p.words)).map(p => p.id);
   if (!proteins.length) proteins = ['vega'];
   return { bases: bases.length ? bases : ['anders'], proteins };
 }
 
 // Oct 2026 the categories were split: Pasta/Noedels/Couscous and Brood/Wraps
-// for the bases, Kalkoen, Worst & hamburgers and Lam for the meat. Recipes
+// for the bases, Kalkoen, Worst & hamburgers and Lam for the meat, and then
+// Soep and Salade were added (`adds`: tagged on top, replacing "Iets anders"). Recipes
 // last saved before a split are moved by their ingredients — on every device
 // and after every sync, since another phone may still send old ones. Anything
 // saved later was categorised on purpose.
 const BASES_V2_AT = 1791999148261;
 const PROTEINS_V2_AT = 1791999438169;
+const BASES_V3_AT = 1791999897036;
 const CATEGORY_MOVES = [
   { field: 'bases', before: BASES_V2_AT, swaps: [['pasta', 'noedels'], ['brood', 'wraps'], ['anders', 'couscous']] },
+  { field: 'bases', before: BASES_V3_AT, swaps: [], adds: ['soep', 'salade'] },
   { field: 'proteins', before: PROTEINS_V2_AT, swaps: [['kip', 'kalkoen'], ['varken', 'worst'], ['gehakt', 'worst'], ['rund', 'lam']] },
 ];
 
@@ -740,12 +750,14 @@ async function migrateCategories() {
   for (const r of liveRecipes()) {
     const guess = guessTags(r.title, r.ingredients || []);
     const next = {};
-    for (const { field, before, swaps } of CATEGORY_MOVES) {
+    for (const { field, before, swaps, adds = [] } of CATEGORY_MOVES) {
       if (!(r.updatedAt < before)) continue;
-      let tags = [...(r[field] || [])];
+      let tags = [...(next[field] || r[field] || [])];
       for (const [from, to] of swaps) {
         if (tags.includes(from) && guess[field].includes(to)) tags = tags.filter(t => t !== from || guess[field].includes(from)).concat(to);
       }
+      const added = adds.filter(t => guess[field].includes(t));
+      if (added.length) tags = [...added, ...tags.filter(t => t !== 'anders')];
       tags = [...new Set(tags)];
       if (tags.join() !== (r[field] || []).join()) next[field] = tags;
     }
@@ -755,7 +767,8 @@ async function migrateCategories() {
 }
 
 function recipeEmoji(r) {
-  const b = effBases(r)[0];
+  const bases = effBases(r);
+  const b = bases.find(t => t === 'soep' || t === 'salade') || bases[0];
   return b === 'anders' ? (PROTEIN_BY_ID[effProteins(r)[0]]?.emoji || '🍽️') : BASE_BY_ID[b].emoji;
 }
 
@@ -2939,8 +2952,15 @@ async function importFromUrl(urlArg) {
   const btn = $('#import-btn'), msg = $('#import-msg');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Ophalen…'; }
   try {
-    const res = await fetch(`${API}/import?url=${encodeURIComponent(url)}`);
-    const data = await res.json().catch(() => ({}));
+    let res = await fetch(`${API}/import?url=${encodeURIComponent(url)}`);
+    let data = await res.json().catch(() => ({}));
+    if (!res.ok && [403, 429, 502, 503].includes(res.status)) {
+      const html = await readerFetch(url);
+      if (html) {
+        res = await fetch(`${API}/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, html }) });
+        data = await res.json().catch(() => ({}));
+      }
+    }
     if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
     if (btn) btn.innerHTML = '<span class="spinner"></span> Foto bewaren…';
     // Keep our own copy so the photo works offline and survives the site.
@@ -2960,6 +2980,22 @@ async function importFromUrl(urlArg) {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Recept ophalen'; }
   }
+}
+
+// Some recipe sites block the worker's Cloudflare address. The Jina reader
+// fetches the page for us; asked from the phone, it isn't held up by
+// everyone else's Cloudflare traffic. First only the JSON-LD, then the page.
+async function readerFetch(url) {
+  const tries = [{ 'X-Target-Selector': 'script[type="application/ld+json"]' }, {}];
+  for (const extra of tries) {
+    try {
+      const res = await fetch('https://r.jina.ai/' + url, { headers: { 'X-Return-Format': 'html', ...extra } });
+      if (!res.ok) continue;
+      const html = await res.text();
+      if (/recipeIngredient|"@type"\s*:\s*"Recipe"/.test(html)) return html;
+    } catch {}
+  }
+  return null;
 }
 
 function importFromText() {
