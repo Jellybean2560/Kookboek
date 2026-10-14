@@ -6,6 +6,8 @@
 //                          never the raw page, so this is not an open proxy.
 //   GET  /image?url=...    Fetch one image (image/* only, max 8 MB) so the app
 //                          can keep its own copy of an imported recipe photo.
+//   GET  /photos?q=...     10 photos of a dish to choose from: Google Images
+//                          via SerpApi when SERPAPI_KEY is set, else Openverse.
 //   POST /scan             {images: [dataURL]} -> recipe read from photos.
 //   POST /classify         {recipe} -> {bases, proteins, time} chosen by AI.
 //   POST /assist           {mode: "vega"|"side", recipe} -> variation / side dishes.
@@ -44,12 +46,15 @@ const CORS = {
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     const url = new URL(request.url);
     try {
       if (url.pathname === "/import" && request.method === "GET") {
         return json(await importRecipe(url.searchParams.get("url"), env));
+      }
+      if (url.pathname === "/photos" && request.method === "GET") {
+        return await searchPhotos(url.searchParams.get("q"), request, env, ctx);
       }
       if (url.pathname === "/image" && request.method === "GET") {
         return await proxyImage(url.searchParams.get("url"));
@@ -330,6 +335,50 @@ Antwoord ALLEEN met JSON:
     return { suggestions };
   }
   throw httpError(400, "Onbekende vraag");
+}
+
+// ── Photo search ────────────────────────────────────────────────────────────
+// SerpApi's free plan: 250 searches a month, renewed monthly. Results are
+// cached for a day per query, and a daily cap keeps one busy day from using
+// the whole month.
+const PHOTO_SEARCHES_PER_IP = 20;
+const PHOTO_SEARCHES_PER_DAY = 25;
+
+async function searchPhotos(q, request, env, ctx) {
+  q = String(q || "").trim().slice(0, 120);
+  if (!q) throw httpError(400, "Geen zoekterm");
+  const cacheKey = new Request("https://kookboek-cache/photos?q=" + encodeURIComponent(q.toLowerCase()) + "&src=" + (env.SERPAPI_KEY ? "g" : "o"));
+  const cached = await caches.default.match(cacheKey);
+  if (cached) return new Response(cached.body, { headers: { "Content-Type": "application/json; charset=utf-8", ...CORS } });
+
+  let out;
+  if (env.SERPAPI_KEY) {
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    const blocked = await env.LIMITER.get(env.LIMITER.idFromName("photos")).take(ip, 1, PHOTO_SEARCHES_PER_IP, PHOTO_SEARCHES_PER_DAY);
+    if (blocked) throw httpError(429, "Er is vandaag al veel naar foto's gezocht. Morgen kan het weer.");
+    const api = "https://serpapi.com/search.json?" + new URLSearchParams({
+      engine: "google_images", q: q + " recept", hl: "nl", gl: "be", imgsz: "qsvga", api_key: env.SERPAPI_KEY,
+    });
+    const res = await fetch(api);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
+      if (/run out|limit|quota/i.test(data.error || "")) throw httpError(429, "De gratis zoekopdrachten voor deze maand zijn op. Volgende maand kan het weer.");
+      throw httpError(502, "Foto's zoeken lukte niet" + (data.error ? ": " + String(data.error).slice(0, 120) : ""));
+    }
+    out = { source: "google", results: (data.images_results || []).filter(r => r.original && !r.is_product).slice(0, 12).map(r => ({
+      thumb: r.thumbnail, url: r.original, title: clean(r.title), site: clean(r.source), link: r.link,
+    })) };
+  } else {
+    const res = await fetch("https://api.openverse.org/v1/images/?" + new URLSearchParams({ q, page_size: "12", mature: "false" }), { headers: { "User-Agent": "Kookboek/1.0" } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw httpError(502, "Foto's zoeken lukte niet");
+    out = { source: "openverse", results: (data.results || []).slice(0, 12).map(r => ({
+      thumb: r.thumbnail || r.url, url: r.url, title: clean(r.title), site: r.source, link: r.foreign_landing_url,
+    })) };
+  }
+  const body = JSON.stringify(out);
+  ctx.waitUntil(caches.default.put(cacheKey, new Response(body, { headers: { "Cache-Control": "public, max-age=86400" } })));
+  return new Response(body, { headers: { "Content-Type": "application/json; charset=utf-8", ...CORS } });
 }
 
 // ── Image copy ──────────────────────────────────────────────────────────────

@@ -264,6 +264,16 @@ nav.tabs a .ic:has(.badge:not([hidden])) { filter: none; opacity: 1; }
 .day-opt span { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .day-opt.on { border-color: var(--accent); background: var(--accent-soft); }
 
+/* Photo picker */
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+@media (min-width: 560px) { .photo-grid { grid-template-columns: repeat(4, 1fr); } }
+.photo-opt { position: relative; aspect-ratio: 1; padding: 0; border: 3px solid transparent; border-radius: 10px; overflow: hidden; background: var(--surface-2); cursor: pointer; }
+.photo-opt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-opt span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.6)); padding: 8px 4px 2px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.photo-opt.on { border-color: var(--accent); }
+.hero-find { position: absolute; right: 14px; top: calc(env(safe-area-inset-top) + 14px); border: none; border-radius: 999px; padding: 9px 14px; background: var(--surface); box-shadow: var(--shadow); font-weight: 600; cursor: pointer; color: var(--text); }
+body.has-timers .hero .hero-find { top: 14px; }
+
 /* Sheet */
 .sheet-wrap { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0); display: flex; align-items: flex-end; justify-content: center; transition: background .2s; }
 .sheet-wrap.open { background: rgba(0, 0, 0, .4); }
@@ -724,9 +734,11 @@ const starsText = (n) => '★'.repeat(n);
 // What a recipe's number counts: people (the default, yieldUnit '') or pieces
 // like "25 stuks" for snacks. Pieces never get the default number of people.
 const isPeople = (r) => !r?.yieldUnit;
-const amountLabel = (r, n) => isPeople(r) ? `${n} ${n === 1 ? 'persoon' : 'personen'}` : `${n} ${r.yieldUnit}`;
-const amountShort = (r, n) => isPeople(r) ? `${n} pers.` : `${n} ${r.yieldUnit}`;
-const startAmount = (r) => (isPeople(r) && settings.defaultServings) || r.servings || 4;
+// No number at all (a sauce, a marinade): nothing to scale, so no stepper.
+const amountLabel = (r, n) => !n ? 'het hele recept' : isPeople(r) ? `${n} ${n === 1 ? 'persoon' : 'personen'}` : `${n} ${r.yieldUnit}`;
+const amountShort = (r, n) => !n ? '' : isPeople(r) ? `${n} pers.` : `${n} ${r.yieldUnit}`;
+const startAmount = (r) => !r.servings ? null : (isPeople(r) && settings.defaultServings) || r.servings;
+const scaleFactor = (r, n) => r.servings && n ? n / r.servings : 1;
 const amountStep = (r, n) => !isPeople(r) && n >= 12 ? 5 : 1;
 
 // Photo cards show a "Favoriet" badge on the picture instead of the heart.
@@ -1104,8 +1116,8 @@ function renderDetail(view, id, fresh) {
   }
   keepAwake();
 
-  const base = r.servings || 4;
-  const factor = detailState.servings / base;
+  const base = r.servings;
+  const factor = scaleFactor(r, detailState.servings);
   const tags = [...effBases(r).map(t => BASE_BY_ID[t]), ...effProteins(r).map(t => PROTEIN_BY_ID[t])].filter(t => t && t.id !== 'anders');
   const ingredients = (r.ingredients || []).map((line, i) => isHeading(line)
     ? `<li class="head">${esc(headingText(line))}</li>`
@@ -1120,6 +1132,7 @@ function renderDetail(view, id, fresh) {
     <div class="hero${r.image ? '' : ' noimg'}">
       ${r.image ? `<img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('noimg');this.remove()">` : ''}
       <button class="back" onclick="goBack()" aria-label="Terug">←</button>
+      ${r.image ? '' : `<button class="hero-find" onclick="openPhotoPicker('${esc(r.id)}')">🖼️ Foto zoeken</button>`}
     </div>
     <h1 class="detail-title">${esc(r.title || 'Naamloos recept')}</h1>
     ${r.source ? `<a class="source" href="${esc(r.source)}" target="_blank" rel="noopener">Bron: ${esc(hostOf(r.source) || r.source)} ↗</a>` : ''}
@@ -1137,6 +1150,7 @@ function renderDetail(view, id, fresh) {
       <button class="btn primary" style="margin-top:8px;min-height:38px;padding:8px 14px" onclick="translateSaved('${esc(r.id)}', this)">🌐 Vertaal naar het Nederlands</button></div></div>` : ''}
     ${r.lastCooked ? `<p class="hint">Laatst gekookt ${daysAgo(r.lastCooked)}${r.cookCount > 1 ? ` · al ${r.cookCount}× gemaakt` : ''}</p>` : ''}
 
+    ${!r.servings ? `<p class="hint" style="margin:12px 0 16px">Geen aantal ingevuld, dus de hoeveelheden worden niet omgerekend. <a href="#/bewerk/${encodeURIComponent(r.id)}">Aantal instellen</a></p>` : `
     <div class="servings">
       <span class="label">${isPeople(r) ? 'Voor' : 'Maakt'}</span>
       <div class="stepper">
@@ -1145,7 +1159,7 @@ function renderDetail(view, id, fresh) {
         <button onclick="setServings(1)" aria-label="Meer">+</button>
       </div>
     </div>
-    ${factor !== 1 ? `<p class="scaled-note">Hoeveelheden omgerekend van ${base} naar ${esc(amountLabel(r, detailState.servings))}. <a href="javascript:void 0" onclick="detailState.servings=${base};render()">Origineel</a></p>` : ''}
+    ${factor !== 1 ? `<p class="scaled-note">Hoeveelheden omgerekend van ${base} naar ${esc(amountLabel(r, detailState.servings))}. <a href="javascript:void 0" onclick="detailState.servings=${base};render()">Origineel</a></p>` : ''}`}
 
     ${stepIdx.length ? `<a class="btn primary block cook-start" href="#/koken/${encodeURIComponent(r.id)}/0">👩‍🍳 Start kookmodus</a>` : ''}
     ${planBarHTML(r)}
@@ -1469,7 +1483,7 @@ function renderCook(view, id, idx) {
   if (!steps.length) { location.replace(`#/recept/${encodeURIComponent(id)}`); return; }
   const i = Math.max(0, Math.min(steps.length - 1, +idx || 0));
   const step = steps[i];
-  const factor = detailState.servings / (r.servings || 4);
+  const factor = scaleFactor(r, detailState.servings);
   const need = ingredientsForStep(r, step.text);
   const last = i === steps.length - 1;
   const to = (n) => `cookGo(${n})`;
@@ -1490,7 +1504,7 @@ function renderCook(view, id, idx) {
       <div class="cook-progress"><div style="width:${((i + 1) / steps.length) * 100}%"></div></div>
       <div class="cook-body">
         ${step.section ? `<div class="cook-section">${esc(step.section)}</div>` : ''}
-        <div class="cook-stepno">Stap ${i + 1} van ${steps.length} · ${esc(amountLabel(r, detailState.servings))}</div>
+        <div class="cook-stepno">Stap ${i + 1} van ${steps.length}${r.servings ? ' · ' + esc(amountLabel(r, detailState.servings)) : ''}</div>
         <div class="cook-text">${stepHTML(step.text, `${r.title} — stap ${i + 1}`)}</div>
         ${need.length ? `<div class="cook-need"><h3>Nodig voor deze stap</h3><ul>${need.map(l => `<li>${scaleLine(l, factor)}</li>`).join('')}</ul></div>` : ''}
       </div>
@@ -1821,7 +1835,7 @@ function shoppingLines() {
     if (!it.manual && !plan) continue; // plan was removed on another phone
     const r = plan ? recipes.get(plan.recipeId) : null;
     const p = parseLine(it.line);
-    if (p.qty != null && plan) p.qty *= plan.servings / (r?.servings || 4);
+    if (p.qty != null && plan && r) p.qty *= scaleFactor(r, plan.servings);
     const gk = p.key;
     // The unit word counts for the aisle: "blik tomaten" is a tin, not fresh.
     if (!groups.has(gk)) groups.set(gk, { key: gk, name: p.name, search: p.search, aisle: aisleOf(`${p.unitWord} ${p.name}`), members: [], items: [], from: new Set() });
@@ -1960,7 +1974,7 @@ function renderShopping(view) {
       ${cooked ? '<span class="done">✓ gekookt</span>' : ''}
       <button class="x" onclick="removePlan('${p.id}')" aria-label="Van de lijst halen">✕</button>
       <button class="day-chip" onclick="openPlanSheet('${esc(r.id)}')">📅 ${esc(p.day ? dayLabel(p.day) : 'Geen dag')}</button>
-      <div class="srv"><button onclick="setPlanServings('${p.id}',-1)" aria-label="Minder personen">−</button>${esc(amountShort(r, p.servings))}<button onclick="setPlanServings('${p.id}',1)" aria-label="Meer personen">+</button></div>
+      ${p.servings ? `<div class="srv"><button onclick="setPlanServings('${p.id}',-1)" aria-label="Minder personen">−</button>${esc(amountShort(r, p.servings))}<button onclick="setPlanServings('${p.id}',1)" aria-label="Meer personen">+</button></div>` : ''}
     </div>`;
   };
 
@@ -2098,7 +2112,7 @@ function planBarHTML(r) {
     return `<button class="btn primary block" style="margin:-4px 0 16px" onclick="planForChosenDay('${esc(r.id)}')">📅 Plan voor ${esc(dayLabel(todayState.planDay).toLowerCase())}</button>`;
   }
   if (plan) {
-    return `<div class="cooked-bar" style="background:var(--surface-2)">📅 <span style="flex:1">${plan.day ? `Gepland voor <b>${esc(dayLabel(plan.day).toLowerCase())}</b>` : 'Op de boodschappenlijst'} · ${esc(amountShort(r, plan.servings))}</span>
+    return `<div class="cooked-bar" style="background:var(--surface-2)">📅 <span style="flex:1">${plan.day ? `Gepland voor <b>${esc(dayLabel(plan.day).toLowerCase())}</b>` : 'Op de boodschappenlijst'}${plan.servings ? ' · ' + esc(amountShort(r, plan.servings)) : ''}</span>
       <button class="btn ghost" style="min-height:36px;padding:6px 12px" onclick="openPlanSheet('${esc(r.id)}')">Wijzig</button></div>`;
   }
   return `<button class="btn ghost block" style="margin:-4px 0 16px" onclick="openPlanSheet('${esc(r.id)}')">📅 Inplannen / op de boodschappenlijst</button>`;
@@ -2119,7 +2133,7 @@ function openPlanSheet(recipeId) {
   const days = Array.from({ length: 7 }, (_, i) => dayKey(i));
   openSheet(`
     <h2 style="margin-bottom:4px">📅 ${esc(r.title)}</h2>
-    <p class="hint" style="margin:0 0 14px">Voor ${esc(amountLabel(r, servings))}. De ingrediënten komen op de boodschappenlijst.</p>
+    <p class="hint" style="margin:0 0 14px">${servings ? `Voor ${esc(amountLabel(r, servings))}. ` : ''}De ingrediënten komen op de boodschappenlijst.</p>
     <div class="day-grid">
       ${days.map(k => {
         const taken = plansOn(k).filter(p => p.recipeId !== recipeId).map(p => recipes.get(p.recipeId).title);
@@ -2390,6 +2404,94 @@ function refreshDraftTags() {
   if ($('#f-time') && draft.time && !$('#f-time').value) $('#f-time').value = draft.time;
 }
 
+// ── Photo picker ────────────────────────────────────────────────────────────
+// Search results to choose a dish photo from: Google Images (via SerpApi on
+// the Worker) when that is set up, otherwise free photos from Openverse.
+
+const photoState = { target: null, results: [], pick: -1, queue: null, source: '' };
+
+function openPhotoPicker(recipeId, queue) {
+  const r = recipeId ? recipes.get(recipeId) : draft;
+  if (!r) return;
+  Object.assign(photoState, { target: recipeId, results: [], pick: -1, queue: queue || null, source: '' });
+  openSheet(`
+    <h2 style="margin-bottom:4px">🖼️ Foto voor ${esc(r.title || 'dit recept')}</h2>
+    ${queue ? `<p class="hint" style="margin:0 0 8px">Nog ${queue.length + 1} ${queue.length ? 'recepten' : 'recept'} zonder foto</p>` : ''}
+    <div class="pantry-input" style="margin-top:10px">
+      <input id="photo-q" value="${esc(r.title || '')}" enterkeyhint="search" onkeydown="if(event.key==='Enter'){event.preventDefault();searchPhotos()}">
+      <button class="btn" onclick="searchPhotos()">Zoek</button>
+    </div>
+    <div id="photo-grid" class="photo-grid"></div>
+    <p class="hint" id="photo-src" style="margin:8px 0 12px"></p>
+    <div class="row">
+      ${queue ? '<button class="btn ghost" onclick="photoQueueNext()">Overslaan</button>' : '<button class="btn ghost" onclick="closeSheet()">Annuleren</button>'}
+      <button class="btn primary" id="photo-use" disabled onclick="usePickedPhoto(this)">Gebruik deze foto</button>
+    </div>`);
+  searchPhotos();
+}
+
+async function searchPhotos() {
+  const q = $('#photo-q')?.value.trim();
+  const grid = $('#photo-grid');
+  if (!q || !grid) return;
+  grid.innerHTML = '<p class="hint" style="grid-column:1/-1"><span class="spinner" style="display:inline-block;width:12px;height:12px;vertical-align:-1px"></span> Foto\'s zoeken…</p>';
+  photoState.pick = -1; $('#photo-use').disabled = true;
+  try {
+    const res = await fetch(`${API}/photos?q=${encodeURIComponent(q)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
+    photoState.results = data.results || [];
+    photoState.source = data.source;
+    grid.innerHTML = photoState.results.length ? photoState.results.map((p, i) =>
+      `<button class="photo-opt" onclick="pickPhotoResult(${i})"><img src="${esc(p.thumb)}" alt="${esc(p.title || '')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"><span>${esc(p.site || '')}</span></button>`).join('')
+      : '<p class="hint" style="grid-column:1/-1">Niets gevonden. Probeer een andere zoekterm, bv. alleen het hoofdingrediënt.</p>';
+    $('#photo-src').textContent = data.source === 'google'
+      ? 'Foto’s van Google, gezocht als “' + q + ' recept”. Enkel voor jullie eigen gebruik.'
+      : 'Vrije foto’s van Openverse. Zoek eventueel in het Engels voor meer resultaten.';
+  } catch (e) {
+    grid.innerHTML = `<p class="hint" style="grid-column:1/-1;color:var(--danger)">${esc(!navigator.onLine ? 'Geen verbinding' : e.message)}</p>`;
+  }
+}
+
+function pickPhotoResult(i) {
+  photoState.pick = i;
+  document.querySelectorAll('.photo-opt').forEach(b => b.classList.toggle('on', b.getAttribute('onclick') === `pickPhotoResult(${i})`));
+  $('#photo-use').disabled = false;
+}
+
+async function usePickedPhoto(btn) {
+  const p = photoState.results[photoState.pick];
+  if (!p) return;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Bewaren…';
+  // Keep our own copy; the full-size original can be blocked, the thumbnail rarely is.
+  let image = await copyImage(p.url);
+  if (!image.startsWith('data:')) image = await copyImage(p.thumb);
+  if (!image.startsWith('data:')) image = p.url;
+  if (photoState.target) {
+    const r = recipes.get(photoState.target);
+    if (r) await saveRecipe({ ...r, image });
+  } else if (draft) {
+    draft.image = image;
+  }
+  if (photoState.queue) return photoQueueNext();
+  closeSheet();
+  render();
+  toast('Foto toegevoegd 🖼️');
+}
+
+function photoQueueStart() {
+  const ids = liveRecipes().filter(r => !r.image).sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0)).map(r => r.id);
+  if (!ids.length) return;
+  openPhotoPicker(ids[0], ids.slice(1));
+}
+
+function photoQueueNext() {
+  const queue = photoState.queue || [];
+  const next = queue.find(id => recipes.get(id) && !recipes.get(id).image);
+  if (!next) { closeSheet(); render(); toast('Klaar met foto\'s kiezen 🖼️'); return; }
+  openPhotoPicker(next, queue.slice(queue.indexOf(next) + 1));
+}
+
 // ── Translate English recipes, once, while adding them ─────────────────────
 
 const EN_MARKERS = /\b(the|and|with|until|into|add|stir|heat|minutes|cups?|tablespoons?|teaspoons?|pounds?|ounces?|over|serve|chopped|large|fresh)\b/g;
@@ -2525,7 +2627,7 @@ async function addSideToList(i, btn) {
 }
 
 function recipeAsText(r, servings) {
-  const factor = servings / (r.servings || 4);
+  const factor = scaleFactor(r, servings);
   const plain = (html) => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent; };
   const ing = (r.ingredients || []).map(l => isHeading(l) ? `\n${headingText(l)}:` : `• ${plain(scaleLine(l, factor))}`).join('\n');
   let n = 0;
@@ -2772,6 +2874,7 @@ function renderEdit(view, id) {
       <div id="photo-preview">${thumbHTML(d)}</div>
       <div class="row">
         <label class="btn" style="flex:1">📷 Foto<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>
+        <button type="button" class="btn" style="flex:1" onclick="openPhotoPicker(null)">🔍 Zoeken</button>
         ${d.image ? `<button type="button" class="btn ghost" onclick="draft.image='';render()">Weg</button>` : ''}
       </div>
     </div>
@@ -2779,11 +2882,11 @@ function renderEdit(view, id) {
     <label class="field"><span>Naam</span><input id="f-title" value="${esc(d.title)}" placeholder="Bv. Spaghetti bolognese" oninput="draft.title=this.value"></label>
     <div style="display:flex;gap:12px">
       <label class="field" style="flex:1.4"><span>Aantal</span>
-        <div style="display:flex;gap:6px"><input type="number" min="1" max="500" inputmode="numeric" value="${d.servings || ''}" placeholder="4" style="min-width:0" oninput="draft.servings=+this.value||null">
+        <div style="display:flex;gap:6px"><input type="number" min="1" max="500" inputmode="numeric" value="${d.servings || ''}" placeholder="–" style="min-width:0" oninput="draft.servings=+this.value||null">
         <select style="width:auto;padding:12px 8px" onchange="draft.yieldUnit=this.value==='personen'?'':this.value">
           ${['personen', 'stuks', ...(d.yieldUnit && d.yieldUnit !== 'stuks' ? [d.yieldUnit] : [])].map(u =>
             `<option value="${esc(u)}"${(d.yieldUnit || 'personen') === u ? ' selected' : ''}>${esc(u)}</option>`).join('')}
-        </select></div></label>
+        </select></div><div class="hint">Leeg laten als het aantal er niet toe doet.</div></label>
       <label class="field" style="flex:1"><span>Tijd (min)</span><input id="f-time" type="number" min="1" inputmode="numeric" value="${d.time || ''}" placeholder="30" oninput="draft.time=+this.value||null"></label>
     </div>
 
@@ -2904,6 +3007,12 @@ function renderSettings(view) {
         <option value="0"${!settings.defaultServings ? ' selected' : ''}>Zoals in het recept</option>
         ${Array.from({ length: 10 }, (_, i) => i + 1).map(i => `<option value="${i}"${settings.defaultServings === i ? ' selected' : ''}>${i} ${i === 1 ? 'persoon' : 'personen'}</option>`).join('')}
       </select>
+    </div>
+
+    <div class="card">
+      <h2>🖼️ Foto's</h2>
+      <p>${(() => { const n = liveRecipes().filter(r => !r.image).length; return n ? `${n} ${n === 1 ? 'recept heeft' : 'recepten hebben'} nog geen foto. Kies er snel een uit zoekresultaten, recept per recept.` : 'Alle recepten hebben een foto. 👍'; })()}</p>
+      ${liveRecipes().some(r => !r.image) ? '<button class="btn primary block" onclick="photoQueueStart()">Foto\'s kiezen</button>' : ''}
     </div>
 
     <div class="card">
