@@ -11,7 +11,7 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
   - Cook mode: 🔊 reads steps aloud (speechSynthesis, nl-BE voice if present); 🎙️ uses (webkit)SpeechRecognition for "volgende/vorige/herhaal/timer/klaar" and restarts itself when the browser stops listening; recognition is aborted while the app is speaking. Works well in Chrome on Android, unreliable on iOS.
   - Text size: `settings.textScale` → CSS `--scale` on body text, detail title and cook text.
   - Bottom sheets via `openSheet()/closeSheet()`; render() only closes them on a real navigation, since background syncs redraw too.
-- `sw.js` — network-first app shell (`kookboek-v5`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
+- `sw.js` — network-first app shell (`kookboek-v6`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
 - `worker/` — Cloudflare Worker `kookboek`, live at `https://kookboek.jellevandenwouwer.workers.dev`. Deploy with `cd worker && npx wrangler deploy` (wrangler is logged in on this PC).
   - `GET /import?url=` fetches a recipe page server-side, parses schema.org `Recipe` JSON-LD (microdata fallback), returns normalised JSON. Never returns raw HTML (not an open proxy).
   - `GET /image?url=` returns one image (image/* only, ≤8 MB). The app stores imported photos as its own ~900px JPEG data-URL copy (`copyImage`), and `migrateImages()` converts older recipes that still hotlink.
@@ -26,16 +26,18 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
 
 ## Data
 - Recipes in IndexedDB `kookboek/recipes` (photos are data-URLs, too big for localStorage). Settings in `kb_settings`, unsynced ids in `kb_dirty`.
-- Recipe: `{id, title, image, source, servings, time, bases[], proteins[], ingredients[], steps[], notes, favorite, rating (0–5), lastCooked, cookCount, createdAt, updatedAt}`.
+- Recipe: `{id, title, image, source, servings, yieldUnit, time, bases[], proteins[], ingredients[], steps[], notes, favorite, rating (0–5), lastCooked, cookCount, createdAt, updatedAt}`.
 - Shopping list (`#/boodschappen`, picker `#/boodschappen/kies`) lives in the same store/sync as recipes, as docs with a `kind`: `plan` `{recipeId, servings}` and `item` `{planId, recipeId, line, checked}` or a manual `{line, manual: true}`. `liveRecipes()` excludes `kind` docs; `liveDocs(kind)` returns them. One doc per line so two phones can tick at once. Items keep the original recipe line and are scaled to the plan's servings when drawn.
   - `shoppingLines()` groups by product key (`parseLine`: ingredient words, crude singular, `SYNONYMS` like ajuin→ui), sums per unit family (`UNIT_BASE` g/ml/el/tl; other units stay separate, joined with " + "), rounds pieces up, sorts by supermarket aisle (`AISLES`, checked in an order where "kippenbouillon"/"blik tomaten" aren't meat/fresh), and puts `STAPLES` (zout, peper, olie…) under "Heb je dit nog in huis?".
   - 📌 Vaste producten: `product` docs (`prod-<key>`) map a list key to a pasted Collect&Go link; product pages are `/nl/zoek?searchTerm=…#pdp_<id>` and open directly on the product with "Toevoegen aan winkelwagen". Lines can be swiped right/left to (un)tick.
   - Collect&Go has no public API to fill a cart. Each line links to `https://www.collectandgo.be/nl/zoek?searchTerm=…` (verified Oct 2026; `/nl/zoeken` is a 404). Neither colruyt.be nor collectandgo.be publishes app links, so it opens the webshop in the browser, not the Xtra app. Don't automate their private API (needs the user's Xtra password, ToS, bot protection).
 - Deleting sets `deleted: true, deletedAt` but keeps the contents for 30 days ("Onlangs verwijderd", undo toast); `emptyOldTrash()` then strips it to a bare tombstone. Old tombstones without `title` are pre-trash and can't be restored.
 - Without a shared book there are no server snapshots; `backupBanner()` nags monthly to export (share sheet on phones). Lines starting with `#` (or `## ` from imports) are section headings.
+- `yieldUnit`: "" = people (default); otherwise what `servings` counts, e.g. "stuks" for snacks ("Porties: 25 stuks"). Pieces never get `settings.defaultServings` and step by 5 above 12 (`startAmount`, `amountStep`, `amountLabel`). Import (`parseYield`), scan and pasted text all fill it.
 - Untagged recipes count as `anders` in the wizard (`effBases` / `effProteins`).
 
 ## Gotchas
+- **Sites behind Cloudflare bot protection refuse Worker requests** (eefkooktzo.nl: 403 from the Worker, 200 from a home connection). `fetchRecipePage()` then asks `r.jina.ai` for only the JSON-LD (`X-Target-Selector`, ~3k tokens) and falls back to the Wayback Machine. Both rate-limit shared Worker IPs (429): Jina allows 20/min anonymously, so an optional free key as Worker secret `JINA_KEY` makes it reliable. Don't hammer them while testing. Photos fall back to the `wsrv.nl` image proxy. The Switch tracker solves the same problem by running on the PC (residential IP), which this app deliberately avoids.
 - **Allerhande (ah.nl) returns 403** to any non-browser fetch (Akamai bot protection), including from Cloudflare. The "Tekst plakken" path (`parseRecipeText`) is the workaround — don't try to evade the block.
 - **Dagelijkse Kost** only puts the first 2 steps in JSON-LD; `nextPayloadSteps()` reads the full list from the Next.js payload.
 - `guessTags()` keyword-matches ingredient lines; strip false friends first (kippenbouillon, vissaus, currypasta, tomatenpuree, rundergehakt → gehakt).

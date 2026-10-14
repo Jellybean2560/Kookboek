@@ -49,7 +49,7 @@ export default {
     const url = new URL(request.url);
     try {
       if (url.pathname === "/import" && request.method === "GET") {
-        return json(await importRecipe(url.searchParams.get("url")));
+        return json(await importRecipe(url.searchParams.get("url"), env));
       }
       if (url.pathname === "/image" && request.method === "GET") {
         return await proxyImage(url.searchParams.get("url"));
@@ -338,7 +338,8 @@ async function proxyImage(target) {
   let u;
   try { u = new URL(target); } catch { throw httpError(400, "Ongeldige link"); }
   if (u.protocol !== "https:" && u.protocol !== "http:") throw httpError(400, "Ongeldige link");
-  let res;
+  const isImage = (r) => r && r.ok && /^image\//i.test(r.headers.get("Content-Type") || "");
+  let res = null;
   try {
     res = await fetch(u.toString(), {
       redirect: "follow",
@@ -349,11 +350,13 @@ async function proxyImage(target) {
         "Referer": u.origin + "/",
       },
     });
-  } catch {
-    throw httpError(502, "De foto kon niet opgehaald worden");
+  } catch {}
+  // Same bot protection as the pages: fall back to the public wsrv.nl image proxy.
+  if (!isImage(res)) {
+    try { res = await fetch(`https://wsrv.nl/?url=${encodeURIComponent(u.toString())}&w=1200&output=jpg`); } catch {}
   }
-  const type = res.headers.get("Content-Type") || "";
-  if (!res.ok || !/^image\//i.test(type)) throw httpError(502, "De foto kon niet opgehaald worden");
+  if (!isImage(res)) throw httpError(502, "De foto kon niet opgehaald worden");
+  const type = res.headers.get("Content-Type");
   if (+res.headers.get("Content-Length") > MAX_IMAGE_BYTES) throw httpError(413, "De foto is te groot");
   const buf = await res.arrayBuffer();
   if (buf.byteLength > MAX_IMAGE_BYTES) throw httpError(413, "De foto is te groot");
@@ -375,12 +378,13 @@ Regels:
 - Neem de tekst letterlijk over in de oorspronkelijke taal. Niet vertalen, niets verzinnen, geen hoeveelheden aanpassen.
 - "ingredients": één ingrediënt per item, met de hoeveelheid vooraan zoals gedrukt (bv. "500 g gehakt", "1 ui"). Staan ingrediënten onder tussenkopjes (bv. "Voor de saus"), zet het kopje als apart item met "# " ervoor.
 - "steps": één stap per item, zonder nummering. Lees kolommen in de juiste volgorde; zinnen die over een regeleinde doorlopen horen bij dezelfde stap.
-- "servings": aantal personen als getal, of null. "time": totale bereidingstijd in minuten als getal, of null.
+- "servings": het aantal als getal, of null. "yieldUnit": "" als dat aantal personen of porties zijn; staat er een aantal stuks (bv. "Porties: 25 stuks", "12 koekjes", "makes 20 bites"), geef dan dat getal als "servings" en het woord als "yieldUnit" ("stuks", "koekjes"). Staat er niets, dan servings null.
+- "time": totale bereidingstijd in minuten als getal (tel voorbereiding en bereiding op), of null.
 - "notes": tips of opmerkingen bij het recept, anders "".
 - Lukt het niet om een recept te lezen, geef dan {"error": "korte uitleg"}.
 
 Antwoord ALLEEN met JSON in deze vorm:
-{"title": "", "servings": null, "time": null, "ingredients": [], "steps": [], "notes": ""}`;
+{"title": "", "servings": null, "yieldUnit": "", "time": null, "ingredients": [], "steps": [], "notes": ""}`;
 
 async function scanRecipe(request, env) {
   const len = +request.headers.get("Content-Length") || 0;
@@ -423,6 +427,7 @@ async function scanRecipe(request, env) {
   const recipe = {
     title: clean(parsed.title),
     servings: num(parsed.servings),
+    yieldUnit: yieldUnitOf(String(parsed.yieldUnit || "")),
     time: num(parsed.time),
     ingredients: lines(parsed.ingredients),
     steps: lines(parsed.steps).map(s => s.replace(/^(stap\s*)?\d+[.)]\s*/i, "")),
@@ -444,30 +449,62 @@ function parseModelJson(text) {
 
 // ── Recipe import ───────────────────────────────────────────────────────────
 
-async function importRecipe(target) {
+const BROWSER_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "nl-NL,nl;q=0.9,en;q=0.8",
+};
+
+// Sites behind Cloudflare's bot protection often refuse requests that come
+// from a Worker (e.g. eefkooktzo.nl: 403 here, 200 from a normal browser). Then
+// ask the Jina reader for just the page's JSON-LD (~3k tokens), and finally the
+// Internet Archive's latest copy. Only the recipe URL is sent to them.
+// Jina without a key allows 20 requests/minute per IP, and Worker IPs are
+// shared, so a free key (`npx wrangler secret put JINA_KEY`) makes it reliable.
+async function fetchRecipePage(url, env) {
+  const jinaHeaders = { "X-Return-Format": "html", "X-Target-Selector": 'script[type="application/ld+json"]', "Accept": "text/html" };
+  if (env.JINA_KEY) jinaHeaders.Authorization = "Bearer " + env.JINA_KEY;
+  const routes = [
+    { name: "direct", url, headers: BROWSER_HEADERS },
+    { name: "jina", url: "https://r.jina.ai/" + url, headers: jinaHeaders, retry429: true },
+    { name: "wayback", url: "https://web.archive.org/web/2026id_/" + url, headers: BROWSER_HEADERS },
+  ];
+  let firstStatus = 0;
+  const trace = [];
+  for (const route of routes) {
+    try {
+      let res = await fetch(route.url, { redirect: "follow", headers: route.headers });
+      if (res.status === 429 && route.retry429) {
+        await new Promise(r => setTimeout(r, 2500));
+        res = await fetch(route.url, { redirect: "follow", headers: route.headers });
+      }
+      if (!firstStatus) firstStatus = res.status;
+      if (!res.ok) { trace.push(`${route.name}:${res.status}`); continue; }
+      const html = (await res.text()).slice(0, 4_000_000);
+      // A reader or archive page without recipe data isn't worth keeping;
+      // the direct page still is (microdata, og: tags).
+      if (route.name !== "direct" && !/recipeIngredient|"@type"\s*:\s*"Recipe"/.test(html)) { trace.push(`${route.name}:norecipe(${html.length})`); continue; }
+      return { html, finalUrl: route.name === "direct" ? (res.url || url) : url };
+    } catch (e) {
+      trace.push(`${route.name}:err(${String(e.message || e).slice(0, 60)})`);
+    }
+  }
+  console.log("import failed", url, trace.join(" "));
+  if (!firstStatus) throw httpError(502, "De website kon niet bereikt worden");
+  if (trace.some(t => t.endsWith(":429"))) throw httpError(503, "Deze website laat ons nu niet binnen en de reserveroute is even te druk. Probeer het over een minuut opnieuw");
+  throw httpError(502, `De website weigerde de aanvraag (fout ${firstStatus})`);
+}
+
+async function importRecipe(target, env) {
   let u;
   try { u = new URL(target); } catch { throw httpError(400, "Dat is geen geldige link"); }
   if (u.protocol !== "https:" && u.protocol !== "http:") throw httpError(400, "Alleen http(s)-links worden ondersteund");
 
-  let res;
-  try {
-    res = await fetch(u.toString(), {
-      redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "nl-NL,nl;q=0.9,en;q=0.8",
-      },
-    });
-  } catch {
-    throw httpError(502, "De website kon niet bereikt worden");
-  }
-  if (!res.ok) throw httpError(502, `De website weigerde de aanvraag (fout ${res.status})`);
-  const html = (await res.text()).slice(0, 4_000_000);
+  const { html, finalUrl } = await fetchRecipePage(u.toString(), env);
 
   const fromLd = findLdRecipe(html);
   const recipe = fromLd ? normaliseLd(fromLd) : fromMicrodata(html);
-  recipe.source = res.url || u.toString();
+  recipe.source = finalUrl;
   // Dagelijkse Kost only puts the first two steps in its JSON-LD; the full
   // list is in the Next.js payload.
   if (recipe.steps.length < 3) {
@@ -522,7 +559,7 @@ function normaliseLd(r) {
     title: clean(r.name),
     description: clean(r.description),
     image: pickImage(r.image),
-    servings: parseServings(r.recipeYield),
+    ...parseYield(r.recipeYield),
     time: isoMinutes(r.totalTime) || (prep + cook) || null,
     ingredients: toArray(r.recipeIngredient || r.ingredients).map(clean).filter(Boolean),
     steps: flattenSteps(r.recipeInstructions),
@@ -587,7 +624,7 @@ function fromMicrodata(html) {
     title: props("name")[0] || "",
     description: "",
     image: "",
-    servings: parseServings(props("recipeYield")[0]),
+    ...parseYield(props("recipeYield")[0]),
     time: null,
     ingredients: [...props("recipeIngredient"), ...props("ingredients")],
     steps: props("recipeInstructions").flatMap(s => s.split(/\n+/)).map(s => s.trim()).filter(Boolean),
@@ -603,12 +640,25 @@ function pickImage(img) {
 }
 
 function parseServings(y) {
+  return parseYield(y).servings;
+}
+
+// "4 personen" → {4, ""}; "25 stuks" / "12 cookies" → {25, "stuks"}. An empty
+// unit means people, which is what the app scales by default.
+function parseYield(y) {
   for (const v of toArray(y)) {
-    if (typeof v === "number" && v > 0) return Math.round(v);
-    const m = String(v).match(/\d+/);
-    if (m && +m[0] > 0 && +m[0] < 100) return +m[0];
+    if (typeof v === "number" && v > 0) return { servings: Math.round(v), yieldUnit: "" };
+    const m = String(v).match(/(\d+)\s*([a-zà-ÿ]+)?/i);
+    if (m && +m[1] > 0 && +m[1] < 1000) return { servings: +m[1], yieldUnit: yieldUnitOf(m[2]) };
   }
-  return null;
+  return { servings: null, yieldUnit: "" };
+}
+
+function yieldUnitOf(word) {
+  const w = (word || "").toLowerCase();
+  if (!w || /^(pers|people|serv|portie|portion|eter)/.test(w)) return "";
+  if (/^(stuk|piece|item|st$)/.test(w)) return "stuks";
+  return w.slice(0, 15);
 }
 
 function isoMinutes(d) {

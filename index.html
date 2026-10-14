@@ -717,13 +717,21 @@ function miniCardHTML(r, sub) {
 
 const starsText = (n) => '★'.repeat(n);
 
+// What a recipe's number counts: people (the default, yieldUnit '') or pieces
+// like "25 stuks" for snacks. Pieces never get the default number of people.
+const isPeople = (r) => !r?.yieldUnit;
+const amountLabel = (r, n) => isPeople(r) ? `${n} ${n === 1 ? 'persoon' : 'personen'}` : `${n} ${r.yieldUnit}`;
+const amountShort = (r, n) => isPeople(r) ? `${n} pers.` : `${n} ${r.yieldUnit}`;
+const startAmount = (r) => (isPeople(r) && settings.defaultServings) || r.servings || 4;
+const amountStep = (r, n) => !isPeople(r) && n >= 12 ? 5 : 1;
+
 // Photo cards show a "Favoriet" badge on the picture instead of the heart.
 function recipeMeta(r, badge = false) {
   const bits = [];
   if (r.favorite && !badge) bits.push('❤️');
   if (r.rating) bits.push(`<span class="stars-mini">${starsText(r.rating)}</span>`);
   if (r.time) bits.push(`⏱ ${r.time} min`);
-  if (r.servings) bits.push(`👥 ${r.servings}`);
+  if (r.servings) bits.push(isPeople(r) ? `👥 ${r.servings}` : `🍢 ${r.servings} ${esc(r.yieldUnit)}`);
   if (r.lastCooked) bits.push(`✓ ${daysAgo(r.lastCooked)}`);
   else if (r.source) bits.push(esc(hostOf(r.source)));
   return bits.map(b => `<span>${b}</span>`).join('');
@@ -1081,7 +1089,7 @@ function renderDetail(view, id, fresh) {
   }
   if (detailState.id !== id) {
     detailState.id = id;
-    detailState.servings = settings.defaultServings || r.servings || 4;
+    detailState.servings = startAmount(r);
     detailState.ticked = new Set();
     detailState.stepsDone = new Set();
   }
@@ -1121,14 +1129,14 @@ function renderDetail(view, id, fresh) {
     ${r.lastCooked ? `<p class="hint">Laatst gekookt ${daysAgo(r.lastCooked)}${r.cookCount > 1 ? ` · al ${r.cookCount}× gemaakt` : ''}</p>` : ''}
 
     <div class="servings">
-      <span class="label">Voor</span>
+      <span class="label">${isPeople(r) ? 'Voor' : 'Maakt'}</span>
       <div class="stepper">
-        <button onclick="setServings(-1)" aria-label="Minder personen">−</button>
-        <span class="n">${detailState.servings} ${detailState.servings === 1 ? 'persoon' : 'personen'}</span>
-        <button onclick="setServings(1)" aria-label="Meer personen">+</button>
+        <button onclick="setServings(-1)" aria-label="Minder">−</button>
+        <span class="n">${esc(amountLabel(r, detailState.servings))}</span>
+        <button onclick="setServings(1)" aria-label="Meer">+</button>
       </div>
     </div>
-    ${factor !== 1 ? `<p class="scaled-note">Hoeveelheden omgerekend van ${base} naar ${detailState.servings} personen. <a href="javascript:void 0" onclick="detailState.servings=${base};render()">Origineel</a></p>` : ''}
+    ${factor !== 1 ? `<p class="scaled-note">Hoeveelheden omgerekend van ${base} naar ${esc(amountLabel(r, detailState.servings))}. <a href="javascript:void 0" onclick="detailState.servings=${base};render()">Origineel</a></p>` : ''}
 
     ${stepIdx.length ? `<a class="btn primary block cook-start" href="#/koken/${encodeURIComponent(r.id)}/0">👩‍🍳 Start kookmodus</a>` : ''}
     ${planBarHTML(r)}
@@ -1163,7 +1171,9 @@ function goBack() {
   if (history.length > 1) history.back(); else location.hash = '#/recepten';
 }
 function setServings(d) {
-  detailState.servings = Math.max(1, Math.min(40, detailState.servings + d));
+  const r = recipes.get(detailState.id);
+  const step = amountStep(r, detailState.servings + (d < 0 ? -1 : 0));
+  detailState.servings = Math.max(1, Math.min(isPeople(r) ? 40 : 500, detailState.servings + d * step));
   render();
 }
 function tickIngredient(i) {
@@ -1442,7 +1452,7 @@ function renderCook(view, id, idx) {
   if (!r || r.deleted) { location.replace('#/recepten'); return; }
   if (detailState.id !== id) {
     detailState.id = id;
-    detailState.servings = settings.defaultServings || r.servings || 4;
+    detailState.servings = startAmount(r);
     detailState.ticked = new Set();
     detailState.stepsDone = new Set();
   }
@@ -1471,7 +1481,7 @@ function renderCook(view, id, idx) {
       <div class="cook-progress"><div style="width:${((i + 1) / steps.length) * 100}%"></div></div>
       <div class="cook-body">
         ${step.section ? `<div class="cook-section">${esc(step.section)}</div>` : ''}
-        <div class="cook-stepno">Stap ${i + 1} van ${steps.length} · 👥 ${detailState.servings} personen</div>
+        <div class="cook-stepno">Stap ${i + 1} van ${steps.length} · ${esc(amountLabel(r, detailState.servings))}</div>
         <div class="cook-text">${stepHTML(step.text, `${r.title} — stap ${i + 1}`)}</div>
         ${need.length ? `<div class="cook-need"><h3>Nodig voor deze stap</h3><ul>${need.map(l => `<li>${scaleLine(l, factor)}</li>`).join('')}</ul></div>` : ''}
       </div>
@@ -1683,7 +1693,7 @@ async function addPlan(recipeId, servings, day = null) {
     if (day !== undefined && existing.day !== day) await saveRecipe({ ...existing, day });
     return;
   }
-  const plan = { id: 'plan-' + newId(), kind: 'plan', recipeId, day, servings: servings || settings.defaultServings || r.servings || 4, createdAt: Date.now() };
+  const plan = { id: 'plan-' + newId(), kind: 'plan', recipeId, day, servings: servings || startAmount(r), createdAt: Date.now() };
   await saveRecipe(plan);
   let order = 0;
   for (const line of r.ingredients || []) {
@@ -1710,7 +1720,9 @@ async function removePlan(planId, silent) {
 
 async function setPlanServings(planId, delta) {
   const plan = recipes.get(planId);
-  await saveRecipe({ ...plan, servings: Math.max(1, Math.min(40, plan.servings + delta)) });
+  const r = recipes.get(plan.recipeId);
+  const step = amountStep(r, plan.servings + (delta < 0 ? -1 : 0));
+  await saveRecipe({ ...plan, servings: Math.max(1, Math.min(isPeople(r) ? 40 : 500, plan.servings + delta * step)) });
   render();
 }
 
@@ -1939,7 +1951,7 @@ function renderShopping(view) {
       ${cooked ? '<span class="done">✓ gekookt</span>' : ''}
       <button class="x" onclick="removePlan('${p.id}')" aria-label="Van de lijst halen">✕</button>
       <button class="day-chip" onclick="openPlanSheet('${esc(r.id)}')">📅 ${esc(p.day ? dayLabel(p.day) : 'Geen dag')}</button>
-      <div class="srv"><button onclick="setPlanServings('${p.id}',-1)" aria-label="Minder personen">−</button>${p.servings} pers.<button onclick="setPlanServings('${p.id}',1)" aria-label="Meer personen">+</button></div>
+      <div class="srv"><button onclick="setPlanServings('${p.id}',-1)" aria-label="Minder personen">−</button>${esc(amountShort(r, p.servings))}<button onclick="setPlanServings('${p.id}',1)" aria-label="Meer personen">+</button></div>
     </div>`;
   };
 
@@ -2077,7 +2089,7 @@ function planBarHTML(r) {
     return `<button class="btn primary block" style="margin:-4px 0 16px" onclick="planForChosenDay('${esc(r.id)}')">📅 Plan voor ${esc(dayLabel(todayState.planDay).toLowerCase())}</button>`;
   }
   if (plan) {
-    return `<div class="cooked-bar" style="background:var(--surface-2)">📅 <span style="flex:1">${plan.day ? `Gepland voor <b>${esc(dayLabel(plan.day).toLowerCase())}</b>` : 'Op de boodschappenlijst'} · ${plan.servings} pers.</span>
+    return `<div class="cooked-bar" style="background:var(--surface-2)">📅 <span style="flex:1">${plan.day ? `Gepland voor <b>${esc(dayLabel(plan.day).toLowerCase())}</b>` : 'Op de boodschappenlijst'} · ${esc(amountShort(r, plan.servings))}</span>
       <button class="btn ghost" style="min-height:36px;padding:6px 12px" onclick="openPlanSheet('${esc(r.id)}')">Wijzig</button></div>`;
   }
   return `<button class="btn ghost block" style="margin:-4px 0 16px" onclick="openPlanSheet('${esc(r.id)}')">📅 Inplannen / op de boodschappenlijst</button>`;
@@ -2094,11 +2106,11 @@ async function planForChosenDay(recipeId) {
 function openPlanSheet(recipeId) {
   const r = recipes.get(recipeId);
   const plan = planFor(recipeId);
-  const servings = plan?.servings || (detailState.id === recipeId ? detailState.servings : settings.defaultServings || r.servings || 4);
+  const servings = plan?.servings || (detailState.id === recipeId ? detailState.servings : startAmount(r));
   const days = Array.from({ length: 7 }, (_, i) => dayKey(i));
   openSheet(`
     <h2 style="margin-bottom:4px">📅 ${esc(r.title)}</h2>
-    <p class="hint" style="margin:0 0 14px">Voor ${servings} personen. De ingrediënten komen op de boodschappenlijst.</p>
+    <p class="hint" style="margin:0 0 14px">Voor ${esc(amountLabel(r, servings))}. De ingrediënten komen op de boodschappenlijst.</p>
     <div class="day-grid">
       ${days.map(k => {
         const taken = plansOn(k).filter(p => p.recipeId !== recipeId).map(p => recipes.get(p.recipeId).title);
@@ -2457,7 +2469,7 @@ function showVegaSheet(r, v) {
   assistResult = { r, v };
   openSheet(`
     <h2 style="margin-bottom:4px">🥦 ${esc(v.title || r.title + ' (vegetarisch)')}</h2>
-    <p class="hint" style="margin:0 0 12px">${esc(v.intro || '')} Voor ${detailState.servings} personen · voorstel van AI, kijk het na.</p>
+    <p class="hint" style="margin:0 0 12px">${esc(v.intro || '')} Voor ${esc(amountLabel(r, detailState.servings))} · voorstel van AI, kijk het na.</p>
     <h3>Ingrediënten</h3><ul class="sheet-list">${v.ingredients.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
     <h3 style="margin-top:12px">Bereiding</h3><ol class="sheet-list">${v.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
     <div class="row" style="margin-top:14px">
@@ -2470,7 +2482,7 @@ function saveVegaVersion() {
   const { r, v } = assistResult;
   closeSheet();
   startDraft({
-    title: v.title || `${r.title} (vegetarisch)`, image: r.image, servings: detailState.servings, time: r.time,
+    title: v.title || `${r.title} (vegetarisch)`, image: r.image, servings: detailState.servings, yieldUnit: r.yieldUnit || '', time: r.time,
     ingredients: v.ingredients, steps: v.steps, bases: [...(r.bases || [])], proteins: ['vega'],
     notes: `Vegetarische versie van "${r.title}", voorgesteld door AI.`, imported: true,
   });
@@ -2480,7 +2492,7 @@ function showSideSheet(r, list) {
   assistResult = { r, list };
   openSheet(`
     <h2 style="margin-bottom:4px">🍽️ Past bij ${esc(r.title)}</h2>
-    <p class="hint" style="margin:0 0 12px">Voorstellen van AI voor ${detailState.servings} personen.</p>
+    <p class="hint" style="margin:0 0 12px">Voorstellen van AI voor ${esc(amountLabel(r, detailState.servings))}.</p>
     ${list.map((s, i) => `<div class="side-sugg">
       <b>${esc(s.name)}</b><p>${esc(s.why)}</p>
       ${s.ingredients.length ? `<p class="hint" style="margin:0 0 8px">${esc(s.ingredients.join(' · '))}</p>
@@ -2504,7 +2516,7 @@ function recipeAsText(r, servings) {
   const ing = (r.ingredients || []).map(l => isHeading(l) ? `\n${headingText(l)}:` : `• ${plain(scaleLine(l, factor))}`).join('\n');
   let n = 0;
   const steps = (r.steps || []).map(s => isHeading(s) ? `\n${headingText(s)}:` : `${++n}. ${s}`).join('\n');
-  return `${r.title}\n(${servings} personen${r.time ? `, ${r.time} min` : ''})\n\nIngrediënten\n${ing}\n\nBereiding\n${steps}${r.source ? `\n\nBron: ${r.source}` : ''}`;
+  return `${r.title}\n(${amountLabel(r, servings)}${r.time ? `, ${r.time} min` : ''})\n\nIngrediënten\n${ing}\n\nBereiding\n${steps}${r.source ? `\n\nBron: ${r.source}` : ''}`;
 }
 async function shareRecipe(id) {
   const r = recipes.get(id);
@@ -2659,7 +2671,7 @@ async function importFromUrl(urlArg) {
     const image = await copyImage(data.image);
     startDraft({
       title: data.title, image, source: data.source || url,
-      servings: data.servings, time: data.time,
+      servings: data.servings, yieldUnit: data.yieldUnit || '', time: data.time,
       ingredients: data.ingredients, steps: data.steps,
       notes: '', imported: true, partial: data.partial,
     });
@@ -2688,7 +2700,9 @@ function parseRecipeText(text) {
   const ingHead = /^(ingredi[eë]nten|ingredients|benodigdheden|boodschappen|wat heb je nodig|nodig|you will need)\b/i;
   const stepHead = /^(bereiding(swijze)?|werkwijze|instructies|zo maak je het|aan de slag|bereiden|recept|instructions|directions|method|preparation|steps)\b\s*:?$/i;
   const url = (text.match(/https?:\/\/\S+/) || [''])[0];
-  const servings = +(text.match(/(\d+)\s*(personen|pers\b|porties|persons|servings|people)/i) || text.match(/\b(?:serves|voor)\s+(\d+)/i) || [])[1] || null;
+  const pieces = text.match(/(\d+)\s*(stuks|stuk\b|pieces)/i);
+  const servings = +((pieces && pieces[1]) || (text.match(/(\d+)\s*(personen|pers\b|porties|persons|servings|people)/i) || text.match(/\b(?:serves|voor)\s+(\d+)/i) || [])[1]) || null;
+  const yieldUnit = pieces ? 'stuks' : '';
   // Only a labelled total time; "bak 4 minuten" in a step is not the recipe's time.
   const tm = text.match(/(?:bereidingstijd|totale tijd|kooktijd|total time|ready in|klaar in|tijd)\s*:?\s*(?:(\d+)\s*(?:u|uur|h|hours?)\s*)?(\d+)?\s*(?:min|minuten|minutes)?/i);
   const time = tm && (tm[1] || tm[2]) ? (+tm[1] || 0) * 60 + (+tm[2] || 0) : null;
@@ -2706,7 +2720,7 @@ function parseRecipeText(text) {
       else if (l.length > 30) steps.push(stripNum(l));
     }
   }
-  return { title, source: url, servings, time, ingredients, steps, notes: '' };
+  return { title, source: url, servings, yieldUnit, time, ingredients, steps, notes: '' };
 }
 
 function startDraft(d) {
@@ -2750,7 +2764,12 @@ function renderEdit(view, id) {
 
     <label class="field"><span>Naam</span><input id="f-title" value="${esc(d.title)}" placeholder="Bv. Spaghetti bolognese" oninput="draft.title=this.value"></label>
     <div style="display:flex;gap:12px">
-      <label class="field" style="flex:1"><span>Personen</span><input type="number" min="1" max="40" inputmode="numeric" value="${d.servings || ''}" placeholder="4" oninput="draft.servings=+this.value||null"></label>
+      <label class="field" style="flex:1.4"><span>Aantal</span>
+        <div style="display:flex;gap:6px"><input type="number" min="1" max="500" inputmode="numeric" value="${d.servings || ''}" placeholder="4" style="min-width:0" oninput="draft.servings=+this.value||null">
+        <select style="width:auto;padding:12px 8px" onchange="draft.yieldUnit=this.value==='personen'?'':this.value">
+          ${['personen', 'stuks', ...(d.yieldUnit && d.yieldUnit !== 'stuks' ? [d.yieldUnit] : [])].map(u =>
+            `<option value="${esc(u)}"${(d.yieldUnit || 'personen') === u ? ' selected' : ''}>${esc(u)}</option>`).join('')}
+        </select></div></label>
       <label class="field" style="flex:1"><span>Tijd (min)</span><input id="f-time" type="number" min="1" inputmode="numeric" value="${d.time || ''}" placeholder="30" oninput="draft.time=+this.value||null"></label>
     </div>
 
@@ -2812,7 +2831,7 @@ async function saveDraft() {
     id: d.id || newId(),
     createdAt: prev?.createdAt || Date.now(),
     title: d.title.trim(), image: d.image || '', source: d.source || '',
-    servings: d.servings || null, time: d.time || null,
+    servings: d.servings || null, yieldUnit: d.yieldUnit || '', time: d.time || null,
     bases: d.bases, proteins: d.proteins,
     ingredients: d.ingredients, steps: d.steps, notes: (d.notes || '').trim(),
     lastCooked: prev?.lastCooked || null, cookCount: prev?.cookCount || 0,
