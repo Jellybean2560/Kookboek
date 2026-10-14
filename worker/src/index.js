@@ -213,7 +213,7 @@ const AI_TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 // Compared Oct 2026 on an English recipe: Mistral Small was fastest (~30 s vs
 // ~80 s for Llama 4 Scout) and kept spoons as el/tl where the others drifted.
 const TRANSLATE_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
-const BASE_IDS = ["aardappelen", "rijst", "pasta", "noedels", "couscous", "brood", "wraps", "soep", "salade", "anders"];
+const BASE_IDS = ["aardappelen", "rijst", "pasta", "noedels", "couscous", "brood", "wraps", "soep", "salade", "saus", "anders"];
 const PROTEIN_IDS = ["kip", "kalkoen", "gehakt", "rund", "varken", "worst", "lam", "vis", "zeevruchten", "vega", "anders"];
 
 async function readRecipeBody(request) {
@@ -254,7 +254,7 @@ async function classifyRecipe({ recipe }, env) {
 ${recipeText(recipe)}
 
 Kies:
-- "bases": de koolhydraatbasis die je op je bord krijgt NAAST of ONDER het gerecht, één of meer uit ${JSON.stringify(BASE_IDS)}. Rijst die erbij geserveerd wordt telt. Noedels (mie, udon, ramen, rijstnoedels) = "noedels", niet "pasta". Couscous en bulgur = "couscous". Tortilla's, taco's, burrito's, enchilada's = "wraps"; brood, broodjes, burgers, pizza = "brood". Is het gerecht zelf een soep of een salade, kies dan "soep" of "salade" (een pastasalade = "salade" en "pasta"); sla of soepgroenten als ingrediënt maken er geen salade of soep van. "anders" = ovenschotel zonder duidelijke basis, enz. Ingrediënten die IN de saus of het stoofsel verwerkt worden zijn NOOIT een basis: brood met mosterd in stoofvlees bindt de saus en is dus geen "brood"; paneermeel, bloem en currypasta ook niet. Staat er geen basis in het recept, kies dan wat er in België traditioneel bij gegeten wordt (bv. stoofvlees → aardappelen).
+- "bases": de koolhydraatbasis die je op je bord krijgt NAAST of ONDER het gerecht, één of meer uit ${JSON.stringify(BASE_IDS)}. Rijst die erbij geserveerd wordt telt. Noedels (mie, udon, ramen, rijstnoedels) = "noedels", niet "pasta". Couscous en bulgur = "couscous". Tortilla's, taco's, burrito's, enchilada's = "wraps"; brood, broodjes, burgers, pizza = "brood". Is het gerecht zelf een soep of een salade, kies dan "soep" of "salade" (een pastasalade = "salade" en "pasta"); sla of soepgroenten als ingrediënt maken er geen salade of soep van. Is het recept zelf een saus, dressing, dip of marinade die apart gemaakt wordt (bv. tomatensaus, pesto, béarnaise, tzatziki), kies dan alleen "saus"; een gerecht MET een saus is geen "saus". "anders" = ovenschotel zonder duidelijke basis, enz. Ingrediënten die IN de saus of het stoofsel verwerkt worden zijn NOOIT een basis: brood met mosterd in stoofvlees bindt de saus en is dus geen "brood"; paneermeel, bloem en currypasta ook niet. Staat er geen basis in het recept, kies dan wat er in België traditioneel bij gegeten wordt (bv. stoofvlees → aardappelen).
 - "proteins": de hoofdeiwitbron, één of meer uit ${JSON.stringify(PROTEIN_IDS)}. Bouillon of vissaus telt niet. Geen vlees of vis = "vega". Gehakt (ook rundergehakt) = "gehakt"; steak, stoofvlees, rundvlees = "rund"; spek, ham, koteletten, spareribs = "varken"; worst, chipolata, chorizo, merguez en hamburgers = "worst"; kalkoen = "kalkoen" (niet "kip"); lamsvlees = "lam".
 - "time": geschatte totale bereidingstijd in minuten (getal), inclusief oventijd en stooftijd.
 

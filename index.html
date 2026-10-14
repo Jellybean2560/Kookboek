@@ -493,6 +493,9 @@ const BASES = [
   // lettuce in the ingredients don't make a dish soup or salad.
   { id: 'soep', label: 'Soep', emoji: '🍲', words: [] },
   { id: 'salade', label: 'Salade', emoji: '🥗', words: [] },
+  // Sauces, dressings and dips made on their own; not a meal, so they stay
+  // out of "Maakt niet uit" and the suggestions.
+  { id: 'saus', label: 'Sauzen', emoji: '🥫', words: [] },
   { id: 'anders', label: 'Iets anders', emoji: '🍽️', words: [] },
 ];
 const PROTEINS = [
@@ -704,6 +707,7 @@ function daysAgo(ts) {
 function startOfDay(ts) { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); }
 
 const effBases = (r) => r.bases?.length ? r.bases : ['anders'];
+const isSauce = (r) => (r.bases || []).includes('saus');
 const effProteins = (r) => r.proteins?.length ? r.proteins : ['anders'];
 
 function guessTags(title, ingredients) {
@@ -725,6 +729,13 @@ function guessTags(title, ingredients) {
   const name = String(title || '').toLowerCase();
   if (/soep(?!vlees|groente|balletje)|soup|velouté|veloute|gazpacho|minestrone|bisque|chowder|potage|bouillabaisse/.test(name)) bases.unshift('soep');
   if (/salade|salad|slaatje/.test(name)) bases.unshift('salade');
+  // "Tomatensaus" is a sauce, "Spaghetti met tomatensaus" or "Pasta pesto" a meal.
+  const rest = name.replace(/[a-zà-ÿ]*(saus|sauce|pesto|dressing)/g, ' ');
+  const meal = /\b(met|in|op|onder|en|with)\b/.test(name) || BASES.some(b => b.words.some(w => new RegExp('(^|[^a-zà-ÿ])' + w).test(rest)));
+  // A title that starts with the sauce ("Pastasaus met gehakt") is one anyway.
+  if (/^[a-zà-ÿ]*(saus|sauce|pesto|dressing)\b/.test(name) || !meal && /saus|sauce|dressing|pesto|mayonaise|mayo\b|aioli|aïoli|vinaigrette|gravy|salsa|chimichurri|tzatziki|hummus|houmous|guacamole|\bdip\b|coulis|marinade|ketchup|chutney|relish/.test(name)) {
+    bases.splice(0, bases.length, 'saus');
+  }
   let proteins = PROTEINS.filter(p => p.words.length && hit(p.words)).map(p => p.id);
   if (!proteins.length) proteins = ['vega'];
   return { bases: bases.length ? bases : ['anders'], proteins };
@@ -732,16 +743,19 @@ function guessTags(title, ingredients) {
 
 // Oct 2026 the categories were split: Pasta/Noedels/Couscous and Brood/Wraps
 // for the bases, Kalkoen, Worst & hamburgers and Lam for the meat, and then
-// Soep and Salade were added (`adds`: tagged on top, replacing "Iets anders"). Recipes
+// Soep and Salade were added (`adds`: tagged on top, replacing "Iets anders"),
+// and later Sauzen. Recipes
 // last saved before a split are moved by their ingredients — on every device
 // and after every sync, since another phone may still send old ones. Anything
 // saved later was categorised on purpose.
 const BASES_V2_AT = 1791999148261;
 const PROTEINS_V2_AT = 1791999438169;
+const BASES_V4_AT = 1792001425885;
 const BASES_V3_AT = 1791999897036;
 const CATEGORY_MOVES = [
   { field: 'bases', before: BASES_V2_AT, swaps: [['pasta', 'noedels'], ['brood', 'wraps'], ['anders', 'couscous']] },
   { field: 'bases', before: BASES_V3_AT, swaps: [], adds: ['soep', 'salade'] },
+  { field: 'bases', before: BASES_V4_AT, swaps: [], adds: ['saus'] },
   { field: 'proteins', before: PROTEINS_V2_AT, swaps: [['kip', 'kalkoen'], ['varken', 'worst'], ['gehakt', 'worst'], ['rund', 'lam']] },
 ];
 
@@ -932,6 +946,7 @@ const isRecent = (r) => r.lastCooked && r.lastCooked > Date.now() - RECENT_DAYS 
 function wizardSets(base, protein, time) {
   let set = liveRecipes();
   if (base && base !== 'alles') set = set.filter(r => effBases(r).includes(base));
+  else set = set.filter(r => !isSauce(r));
   if (protein && protein !== 'alles') set = set.filter(r => effProteins(r).includes(protein));
   const max = TIME_BY_ID[time]?.max;
   if (!max) return { fits: set, unknown: [] };
@@ -978,7 +993,7 @@ function renderToday(view, args) {
       <h1 class="question">Waar hebben jullie zin in?</h1>
       <div class="choices">
         ${BASES.map(b => choiceHTML(b, wizardSets(b.id).fits.length, `#/vandaag/${b.id}`)).join('')}
-        ${anyHTML(all.length, '#/vandaag/alles')}
+        ${anyHTML(wizardSets('alles').fits.length, '#/vandaag/alles')}
       </div>
       <a class="pantry-link" href="#/inhuis"><span class="emoji">🧺</span><div><b>Wat heb ik in huis?</b><span>Vul in wat je nog hebt en zie wat je ermee kunt maken.</span></div></a>`;
     return;
@@ -1063,6 +1078,7 @@ function surprise(base, protein, time) {
 
 function suggestionsHTML(all) {
   const DAY = 86400000;
+  all = all.filter(r => !isSauce(r));
   const week = all.filter(isRecent).sort((a, b) => b.lastCooked - a.lastCooked);
   const dayName = (ts) => {
     const d = Math.round((startOfDay(Date.now()) - startOfDay(ts)) / DAY);
