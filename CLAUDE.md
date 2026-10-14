@@ -11,7 +11,7 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
   - Cook mode: 🔊 reads steps aloud (speechSynthesis, nl-BE voice if present); 🎙️ uses (webkit)SpeechRecognition for "volgende/vorige/herhaal/timer/klaar" and restarts itself when the browser stops listening; recognition is aborted while the app is speaking. Works well in Chrome on Android, unreliable on iOS.
   - Text size: `settings.textScale` (1 / 1.2 / 1.45 / 1.7) × `--device` (1.12 on screens ≥ 700px, i.e. iPad) → CSS `zoom` on `.wrap`, `.sheet` and `#timers`, so everything in the content scales together. Lengths that must match the unzoomed screen (sticky form bar, cook-mode height) divide by `--fs`.
   - Bottom sheets via `openSheet()/closeSheet()`; render() only closes them on a real navigation, since background syncs redraw too.
-- `sw.js` — network-first app shell (`kookboek-v8`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
+- `sw.js` — network-first app shell (`kookboek-v9`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
 - `worker/` — Cloudflare Worker `kookboek`, live at `https://kookboek.jellevandenwouwer.workers.dev`. Deploy with `cd worker && npx wrangler deploy` (wrangler is logged in on this PC).
   - `GET /import?url=` fetches a recipe page server-side, parses schema.org `Recipe` JSON-LD (microdata fallback), returns normalised JSON. Never returns raw HTML (not an open proxy).
   - `GET /image?url=` returns one image (image/* only, ≤8 MB). The app stores imported photos as its own ~900px JPEG data-URL copy (`copyImage`), and `migrateImages()` converts older recipes that still hotlink.
@@ -39,6 +39,7 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
 - Untagged recipes count as `anders` in the wizard (`effBases` / `effProteins`).
 
 ## Gotchas
+- **manifest `id` is `/Kookboek/app`** (set Oct 2026). A Xiaomi phone kept a broken, invisible WebAPK under the old implicit id (Chrome: "already installed" → "Could not open app"); a new id makes Chrome offer a fresh install. Don't change it again without reason: every change makes installed copies look like a different app.
 - **Sites behind Cloudflare bot protection refuse Worker requests** (eefkooktzo.nl: 403 from the Worker, 200 from a home connection). `fetchRecipePage()` then asks `r.jina.ai` for only the JSON-LD (`X-Target-Selector`, ~3k tokens) and falls back to the Wayback Machine. Both rate-limit shared Worker IPs (429): Jina allows 20/min anonymously, so an optional free key as Worker secret `JINA_KEY` makes it reliable. Don't hammer them while testing. Photos fall back to the `wsrv.nl` image proxy. The Switch tracker solves the same problem by running on the PC (residential IP), which this app deliberately avoids.
 - **Allerhande (ah.nl) returns 403** to any non-browser fetch (Akamai bot protection), including from Cloudflare. The "Tekst plakken" path (`parseRecipeText`) is the workaround — don't try to evade the block.
 - **Dagelijkse Kost** only puts the first 2 steps in JSON-LD; `nextPayloadSteps()` reads the full list from the Next.js payload.
