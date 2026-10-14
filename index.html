@@ -484,8 +484,11 @@ const API = localStorage.getItem('kb_api') || 'https://kookboek.jellevandenwouwe
 const BASES = [
   { id: 'aardappelen', label: 'Aardappelen', emoji: '🥔', words: ['aardappel', 'krieltje', 'friet', 'frietjes', 'patat', 'puree', 'gratin', 'rösti', 'roseval', 'potato', 'kroket', 'wedges', 'stamppot'] },
   { id: 'rijst', label: 'Rijst', emoji: '🍚', words: ['rijst', 'risotto', 'paella', 'basmati', 'jasmijn', 'pandan', 'rice', 'nasi', 'sushi'] },
-  { id: 'pasta', label: 'Pasta & noedels', emoji: '🍝', words: ['pasta', 'spaghetti', 'penne', 'tagliatelle', 'macaroni', 'lasagne', 'lasagna', 'fusilli', 'farfalle', 'linguine', 'orzo', 'gnocchi', 'ravioli', 'tortellini', 'rigatoni', 'noedel', 'noodle', 'mie', 'udon', 'ramen', 'bami', 'conchiglie', 'pappardelle', 'fettuccine'] },
-  { id: 'brood', label: 'Brood & wraps', emoji: '🥖', words: ['brood', 'wrap', 'tortilla', 'burger', 'pistolet', 'pita', 'naan', 'stokbrood', 'ciabatta', 'focaccia', 'taco', 'broodje', 'bun', 'croque', 'toast', 'pizza'] },
+  { id: 'pasta', label: 'Pasta', emoji: '🍝', words: ['pasta', 'spaghetti', 'penne', 'tagliatelle', 'macaroni', 'lasagne', 'lasagna', 'fusilli', 'farfalle', 'linguine', 'orzo', 'gnocchi', 'ravioli', 'tortellini', 'rigatoni', 'conchiglie', 'pappardelle', 'fettuccine'] },
+  { id: 'noedels', label: 'Noedels', emoji: '🍜', words: ['noedel', 'noodle', 'mie', 'udon', 'ramen', 'bami', 'soba', 'vermicelli', 'pad thai'] },
+  { id: 'couscous', label: 'Couscous', emoji: '🥣', words: ['couscous', 'bulgur', 'parelcouscous'] },
+  { id: 'brood', label: 'Brood', emoji: '🥖', words: ['brood', 'burger', 'pistolet', 'pita', 'naan', 'stokbrood', 'ciabatta', 'focaccia', 'broodje', 'bun', 'croque', 'toast', 'pizza', 'baguette'] },
+  { id: 'wraps', label: 'Wraps', emoji: '🌯', words: ['wrap', 'tortilla', 'taco', 'burrito', 'fajita', 'enchilada', 'quesadilla'] },
   { id: 'anders', label: 'Iets anders', emoji: '🥗', words: [] },
 ];
 const PROTEINS = [
@@ -636,6 +639,7 @@ async function sync() {
       if (!batch.length) break;
     } while (dirty.size);
     syncError = '';
+    if (changedAny) await migrateBases();
   } catch (e) {
     syncError = e.message || 'Synchroniseren mislukt';
   } finally {
@@ -704,12 +708,37 @@ function guessTags(title, ingredients) {
     .replace(/(snee|sneden|sneetjes?|korst(en)?|stukje)\s+(\w+\s+)?brood\w*|brood(kruim|kruimels|deeg)\w*|paneermeel/g, ' ')
     // Minced beef is "gehakt", not steak.
     .replace(/(runder|rund|varkens|kalfs|lams|kippen|kip)gehakt/g, ' gehakt')
-    .replace(/(curry|kerrie|tomaten|sesam|noten|knoflook|gember|chili|miso|kruiden|boemboe)[\s-]?(pasta|puree|purée)/g, ' ');
+    .replace(/(curry|kerrie|tomaten|sesam|noten|knoflook|gember|chili|miso|kruiden|boemboe)[\s-]?(pasta|puree|purée)/g, ' ')
+    // Rice noodles are noodles, rice vinegar isn't rice.
+    .replace(/rijst(noedel|vermicelli|papier|azijn|wijn)/g, '$1');
   const hit = (words) => words.some(w => new RegExp(`[^a-zà-ÿ]${w.replace(/[-]/g, '\\-')}`).test(text));
   const bases = BASES.filter(b => b.words.length && hit(b.words)).map(b => b.id);
   let proteins = PROTEINS.filter(p => p.words.length && hit(p.words)).map(p => p.id);
   if (!proteins.length) proteins = ['vega'];
   return { bases: bases.length ? bases : ['anders'], proteins };
+}
+
+// Oct 2026: "Pasta & noedels" and "Brood & wraps" were split, and Noedels,
+// Couscous and Wraps added. Recipes last saved before that are moved by their
+// ingredients — on every device and after every sync, since another phone may
+// still send old ones. Anything saved later was categorised on purpose.
+const BASES_V2_AT = 1791999148261;
+async function migrateBases() {
+  let moved = 0;
+  for (const r of liveRecipes()) {
+    if (!(r.updatedAt < BASES_V2_AT)) continue;
+    const guess = guessTags(r.title, r.ingredients || []).bases;
+    let bases = [...(r.bases || [])];
+    const swap = (from, to) => {
+      if (bases.includes(from) && guess.includes(to)) bases = bases.filter(b => b !== from || guess.includes(from)).concat(to);
+    };
+    swap('pasta', 'noedels');
+    swap('brood', 'wraps');
+    swap('anders', 'couscous');
+    bases = [...new Set(bases)];
+    if (bases.join() !== (r.bases || []).join()) { await saveRecipe({ ...r, bases }); moved++; }
+  }
+  return moved;
 }
 
 function recipeEmoji(r) {
@@ -3279,6 +3308,7 @@ function takeSharedUrl() {
   setInterval(() => { if (document.visibilityState === 'visible') scheduleSync(0); }, 60000);
   window.addEventListener('online', () => { scheduleSync(0); migrateImages(); });
   emptyOldTrash();
+  migrateBases().then(moved => { if (moved && !location.hash.startsWith('#/bewerk')) render(); });
   // After the first sync, so both phones don't copy the same photos at once.
   setTimeout(migrateImages, 5000);
 
