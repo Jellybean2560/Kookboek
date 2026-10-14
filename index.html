@@ -492,10 +492,13 @@ const BASES = [
   { id: 'anders', label: 'Iets anders', emoji: '🥗', words: [] },
 ];
 const PROTEINS = [
-  { id: 'kip', label: 'Kip', emoji: '🍗', words: ['kip', 'kippen', 'chicken', 'kalkoen', 'gevogelte', 'eend'] },
+  { id: 'kip', label: 'Kip', emoji: '🍗', words: ['kip', 'kippen', 'chicken', 'gevogelte', 'eend'] },
+  { id: 'kalkoen', label: 'Kalkoen', emoji: '🦃', words: ['kalkoen', 'turkey'] },
   { id: 'gehakt', label: 'Gehakt', emoji: '🍔', words: ['gehakt', 'gehaktbal', 'balletjes', 'mince', 'half-om-half', 'kefta', 'köfte'] },
-  { id: 'rund', label: 'Steak & rund', emoji: '🥩', words: ['steak', 'biefstuk', 'rundvlees', 'runder', 'entrecote', 'entrecôte', 'ossenhaas', 'rib-eye', 'ribeye', 'rosbief', 'stoofvlees', 'beef', 'bavette', 'kalfs', 'carpaccio', 'lams', 'lamsvlees'] },
-  { id: 'varken', label: 'Varken & worst', emoji: '🥓', words: ['varken', 'spek', 'ham', 'worst', 'chorizo', 'pancetta', 'bacon', 'spareribs', 'pork', 'karbonade', 'kotelet', 'lardons', 'salami', 'saucijs', 'prosciutto', 'filet mignon', 'hesp'] },
+  { id: 'rund', label: 'Rund', emoji: '🥩', words: ['steak', 'biefstuk', 'rundvlees', 'runder', 'entrecote', 'entrecôte', 'ossenhaas', 'rib-eye', 'ribeye', 'rosbief', 'stoofvlees', 'beef', 'bavette', 'kalfs', 'carpaccio'] },
+  { id: 'varken', label: 'Varken', emoji: '🐖', words: ['varken', 'spek', 'ham', 'pancetta', 'bacon', 'spareribs', 'ribbetjes', 'pork', 'karbonade', 'kotelet', 'lardons', 'prosciutto', 'filet mignon', 'hesp'] },
+  { id: 'worst', label: 'Worst & hamburgers', emoji: '🌭', words: ['worst', 'worstjes', 'chipolata', 'chorizo', 'salami', 'saucijs', 'merguez', 'frankfurter', 'knakworst', 'braadworst', 'hamburger', 'burger'] },
+  { id: 'lam', label: 'Lam', emoji: '🐑', words: ['lam', 'lams', 'lamsvlees', 'lamsbout', 'lamskotelet', 'schaap'] },
   { id: 'vis', label: 'Vis', emoji: '🐟', words: ['zalm', 'kabeljauw', 'tonijn', 'vis', 'salmon', 'pangasius', 'tilapia', 'makreel', 'forel', 'schelvis', 'koolvis', 'heek', 'tong', 'zeebaars', 'dorade', 'ansjovis', 'sardine', 'schol', 'wijting'] },
   { id: 'zeevruchten', label: 'Scampi & zeevruchten', emoji: '🦐', words: ['scampi', 'garnaal', 'garnalen', 'mosselen', 'mossel', 'shrimp', 'prawn', 'inktvis', 'calamar', 'sint-jakob', 'kreeft', 'krab', 'gamba'] },
   { id: 'vega', label: 'Vegetarisch', emoji: '🥦', words: [] },
@@ -639,7 +642,7 @@ async function sync() {
       if (!batch.length) break;
     } while (dirty.size);
     syncError = '';
-    if (changedAny) await migrateBases();
+    if (changedAny) await migrateCategories();
   } catch (e) {
     syncError = e.message || 'Synchroniseren mislukt';
   } finally {
@@ -707,7 +710,9 @@ function guessTags(title, ingredients) {
     // Bread used as an ingredient (stoofvlees, breadcrumbs) isn't a bread meal.
     .replace(/(snee|sneden|sneetjes?|korst(en)?|stukje)\s+(\w+\s+)?brood\w*|brood(kruim|kruimels|deeg)\w*|paneermeel/g, ' ')
     // Minced beef is "gehakt", not steak.
-    .replace(/(runder|rund|varkens|kalfs|lams|kippen|kip)gehakt/g, ' gehakt')
+    .replace(/(runder|rund|varkens|kalfs|lams|kippen|kip|kalkoen)gehakt/g, ' gehakt')
+    // A hamburger isn't ham.
+    .replace(/hamburger/g, ' burger')
     .replace(/(curry|kerrie|tomaten|sesam|noten|knoflook|gember|chili|miso|kruiden|boemboe)[\s-]?(pasta|puree|purée)/g, ' ')
     // Rice noodles are noodles, rice vinegar isn't rice.
     .replace(/rijst(noedel|vermicelli|papier|azijn|wijn)/g, '$1');
@@ -718,25 +723,33 @@ function guessTags(title, ingredients) {
   return { bases: bases.length ? bases : ['anders'], proteins };
 }
 
-// Oct 2026: "Pasta & noedels" and "Brood & wraps" were split, and Noedels,
-// Couscous and Wraps added. Recipes last saved before that are moved by their
-// ingredients — on every device and after every sync, since another phone may
-// still send old ones. Anything saved later was categorised on purpose.
+// Oct 2026 the categories were split: Pasta/Noedels/Couscous and Brood/Wraps
+// for the bases, Kalkoen, Worst & hamburgers and Lam for the meat. Recipes
+// last saved before a split are moved by their ingredients — on every device
+// and after every sync, since another phone may still send old ones. Anything
+// saved later was categorised on purpose.
 const BASES_V2_AT = 1791999148261;
-async function migrateBases() {
+const PROTEINS_V2_AT = 1791999438169;
+const CATEGORY_MOVES = [
+  { field: 'bases', before: BASES_V2_AT, swaps: [['pasta', 'noedels'], ['brood', 'wraps'], ['anders', 'couscous']] },
+  { field: 'proteins', before: PROTEINS_V2_AT, swaps: [['kip', 'kalkoen'], ['varken', 'worst'], ['gehakt', 'worst'], ['rund', 'lam']] },
+];
+
+async function migrateCategories() {
   let moved = 0;
   for (const r of liveRecipes()) {
-    if (!(r.updatedAt < BASES_V2_AT)) continue;
-    const guess = guessTags(r.title, r.ingredients || []).bases;
-    let bases = [...(r.bases || [])];
-    const swap = (from, to) => {
-      if (bases.includes(from) && guess.includes(to)) bases = bases.filter(b => b !== from || guess.includes(from)).concat(to);
-    };
-    swap('pasta', 'noedels');
-    swap('brood', 'wraps');
-    swap('anders', 'couscous');
-    bases = [...new Set(bases)];
-    if (bases.join() !== (r.bases || []).join()) { await saveRecipe({ ...r, bases }); moved++; }
+    const guess = guessTags(r.title, r.ingredients || []);
+    const next = {};
+    for (const { field, before, swaps } of CATEGORY_MOVES) {
+      if (!(r.updatedAt < before)) continue;
+      let tags = [...(r[field] || [])];
+      for (const [from, to] of swaps) {
+        if (tags.includes(from) && guess[field].includes(to)) tags = tags.filter(t => t !== from || guess[field].includes(from)).concat(to);
+      }
+      tags = [...new Set(tags)];
+      if (tags.join() !== (r[field] || []).join()) next[field] = tags;
+    }
+    if (Object.keys(next).length) { await saveRecipe({ ...r, ...next }); moved++; }
   }
   return moved;
 }
@@ -3308,7 +3321,7 @@ function takeSharedUrl() {
   setInterval(() => { if (document.visibilityState === 'visible') scheduleSync(0); }, 60000);
   window.addEventListener('online', () => { scheduleSync(0); migrateImages(); });
   emptyOldTrash();
-  migrateBases().then(moved => { if (moved && !location.hash.startsWith('#/bewerk')) render(); });
+  migrateCategories().then(moved => { if (moved && !location.hash.startsWith('#/bewerk')) render(); });
   // After the first sync, so both phones don't copy the same photos at once.
   setTimeout(migrateImages, 5000);
 

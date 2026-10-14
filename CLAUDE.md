@@ -11,7 +11,7 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
   - Cook mode: 🔊 reads steps aloud (speechSynthesis, nl-BE voice if present); 🎙️ uses (webkit)SpeechRecognition for "volgende/vorige/herhaal/timer/klaar" and restarts itself when the browser stops listening; recognition is aborted while the app is speaking. Works well in Chrome on Android, unreliable on iOS.
   - Text size: `settings.textScale` (1 / 1.2 / 1.45 / 1.7) × `--device` (1.12 on screens ≥ 700px, i.e. iPad) → CSS `zoom` on `.wrap`, `.sheet` and `#timers`, so everything in the content scales together. Lengths that must match the unzoomed screen (sticky form bar, cook-mode height) divide by `--fs`.
   - Bottom sheets via `openSheet()/closeSheet()`; render() only closes them on a real navigation, since background syncs redraw too.
-- `sw.js` — network-first app shell (`kookboek-v11`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
+- `sw.js` — network-first app shell (`kookboek-v12`, bump to force refresh). `manifest.json` has a `share_target` so Android's share sheet opens `./?url=…`.
 - `worker/` — Cloudflare Worker `kookboek`, live at `https://kookboek.jellevandenwouwer.workers.dev`. Deploy with `cd worker && npx wrangler deploy` (wrangler is logged in on this PC).
   - `GET /import?url=` fetches a recipe page server-side, parses schema.org `Recipe` JSON-LD (microdata fallback), returns normalised JSON. Never returns raw HTML (not an open proxy).
   - `GET /image?url=` returns one image (image/* only, ≤8 MB). The app stores imported photos as its own ~900px JPEG data-URL copy (`copyImage`), and `migrateImages()` converts older recipes that still hotlink.
@@ -38,7 +38,7 @@ Dutch-language recipe PWA for Android + iOS. Single file `index.html`, no build 
 - Without a shared book there are no server snapshots; `backupBanner()` nags monthly to export (share sheet on phones). Lines starting with `#` (or `## ` from imports) are section headings.
 - `servings` empty = no amount: no stepper, no scaling (`scaleFactor` → 1), no amount on the list/menu.
 - `yieldUnit`: "" = people (default); otherwise what `servings` counts, e.g. "stuks" for snacks ("Porties: 25 stuks"). Pieces never get `settings.defaultServings` and step by 5 above 12 (`startAmount`, `amountStep`, `amountLabel`). Import (`parseYield`), scan and pasted text all fill it.
-- Bases (Oct 2026): aardappelen, rijst, pasta, noedels, couscous, brood, wraps, anders. `migrateBases()` moves recipes last saved before `BASES_V2_AT` from pasta→noedels, brood→wraps, anders→couscous when their ingredients say so; it runs at boot and after syncs that bring changes. The Worker's `BASE_IDS` must match `BASES`.
+- Bases (Oct 2026): aardappelen, rijst, pasta, noedels, couscous, brood, wraps, anders. Proteins (Oct 2026): kip, kalkoen, gehakt, rund, varken, worst ("Worst & hamburgers"), lam, vis, zeevruchten, vega, anders. `migrateCategories()` (`CATEGORY_MOVES`) moves recipes last saved before `BASES_V2_AT` / `PROTEINS_V2_AT` (pasta→noedels, brood→wraps, anders→couscous; kip→kalkoen, varken/gehakt→worst, rund→lam) when their ingredients say so; it runs at boot and after syncs that bring changes. The Worker's `BASE_IDS` / `PROTEIN_IDS` must match `BASES` / `PROTEINS`.
 - Untagged recipes count as `anders` in the wizard (`effBases` / `effProteins`).
 
 ## Gotchas
