@@ -1,3 +1,6 @@
 node_modules/
 .wrangler/
 .claude/
+
+# Local helper for setting the SerpApi secret
+SerpApi-sleutel instellen.bat
